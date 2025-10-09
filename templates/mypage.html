@@ -9,6 +9,8 @@
   <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/nav.css') }}">
+  <!-- [추가] mypage.css 파일을 연결하는 코드 -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/mypage.css') }}">
   <script>
     tailwind.config = {
       darkMode: 'class',
@@ -26,7 +28,7 @@
     .top-grad{ background: radial-gradient(60% 60% at 0% 0%, #FFF0E7 0%, rgba(255,240,231,0) 60%), radial-gradient(60% 60% at 100% 0%, #FFE7DB 0%, rgba(255,231,219,0) 60%); }
     .glass{ background: rgba(255,255,255,.7); backdrop-filter: blur(10px); }
   </style>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/mypage.css') }}">
+  <!-- style 태그는 mypage.css가 있으므로, 이 파일에 특화된 스타일이 없다면 삭제해도 괜찮습니다. -->
 </head>
 <body class="bg-cream">
   <div class="top-grad h-[160px] w-full absolute inset-0 -z-10 pointer-events-none"></div>
@@ -70,7 +72,7 @@
           </ul>
         </div>
         
-        <!-- 내 활동 (카운트는 나중에 기능 구현 시 추가) -->
+        <!-- 내 활동 -->
         <div class="activity-section">
           <h2>내 활동</h2>
           <div class="activity-grid">
