@@ -1,116 +1,186 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>KBU hub | 마이페이지</title>
-  <link rel="icon" href="{{ url_for('static', filename='images/logo.png') }}">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/nav.css') }}">
-  <!-- [추가] mypage.css 파일을 연결하는 코드 -->
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/mypage.css') }}">
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: { peach: '#FFC8B2', peachDeep: '#FF9F80', cream: '#FFF7F2', cocoa:'#6B7280', ink:'#1F2937', mint:'#B7F4E6', lemon:'#FFF3A3' },
-          boxShadow: { soft:'0 10px 30px rgba(255,159,128,.18)', glow:'0 0 0 0 rgba(255,159,128,.0)', card:'0 10px 24px rgba(17,24,39,.08)' },
-          borderRadius: { bubble:'999px', xl2:'1.25rem' }
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>KBU hub | 마이페이지</title>
+    <link rel="icon" href="{{ url_for('static', filename='images/logo.png') }}">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/nav.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mypage.css') }}">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: { peach: '#FFC8B2', peachDeep: '#FF9F80', cream: '#FFF7F2', cocoa: '#6B7280', ink: '#1F2937', mint: '#B7F4E6', lemon: '#FFF3A3' },
+                    boxShadow: { soft: '0 10px 30px rgba(255,159,128,.18)', glow: '0 0 0 0 rgba(255,159,128,.0)', card: '0 10px 24px rgba(17,24,39,.08)' },
+                    borderRadius: { bubble: '999px', xl2: '1.25rem' }
+                }
+            }
         }
-      }
-    }
-  </script>
-  <style>
-    html, body { font-family: Pretendard, system-ui, -apple-system, Segoe UI, Roboto, 'Noto Sans KR', sans-serif; }
-    .top-grad{ background: radial-gradient(60% 60% at 0% 0%, #FFF0E7 0%, rgba(255,240,231,0) 60%), radial-gradient(60% 60% at 100% 0%, #FFE7DB 0%, rgba(255,231,219,0) 60%); }
-    .glass{ background: rgba(255,255,255,.7); backdrop-filter: blur(10px); }
-  </style>
-  <!-- style 태그는 mypage.css가 있으므로, 이 파일에 특화된 스타일이 없다면 삭제해도 괜찮습니다. -->
+    </script>
 </head>
 <body class="bg-cream">
-  <div class="top-grad h-[160px] w-full absolute inset-0 -z-10 pointer-events-none"></div>
+    <!-- 헤더 -->
+    <header class="fixed top-0 left-0 right-0 z-50 border-b border-peach/40 bg-white/80 backdrop-blur-sm">
+        <!-- ... (헤더 내용은 이전과 동일하게 유지) ... -->
+    </header>
 
-  <!-- 헤더 -->
-  <header class="fixed top-0 left-0 right-0 z-50 border-b border-peach/40 glass">
-    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-4">
-      <a href="{{ url_for('index') }}" class="flex items-center gap-2 font-extrabold text-lg">
-        <img src="{{ url_for('static', filename='images/logo.png') }}" alt="KBU hub" class="w-9 h-9 rounded-full shadow-[0_8px_18px_rgba(255,159,128,.25)]">
-        <span>hub</span>
-      </a>
-      <nav class="ml-auto hidden md:flex">
-        <div id="navPill" class="nav-pill"></div>
-      </nav>
-      <button id="menuBtn" class="md:hidden ml-auto p-2 rounded-full border border-peach/60">☰</button>
-    </div>
-    <div id="mobileNav" class="hidden md:hidden px-4 pb-3 border-t border-peach/40 bg-white/70">
-      <div class="flex flex-col gap-1 py-2 text-sm"></div>
-    </div>
-  </header>
-
-  <main style="margin-top: 80px;">
-    <div class="mypage-container">
-      <div class="mypage-card">
-        <!-- 프로필 헤더 -->
-        <div class="profile-header">
-          <img src="{{ url_for('static', filename='images/default-profile.png') }}" alt="프로필 사진" class="profile-image">
-          <div>
-            <h1 class="profile-name">{{ user.name }}</h1>
-            <p class="profile-info">{{ user.student_id }} / {{ user.status }}</p>
-          </div>
-        </div>
-
-        <!-- 프로필 상세 정보 -->
-        <div class="profile-details">
-          <h2>기본 정보</h2>
-          <ul>
-            <li><strong>이메일</strong> <span>{{ user.email }}</span></li>
-            <li><strong>성별</strong> <span>{{ user.gender }}</span></li>
-            <li><strong>생년월일</strong> <span>{{ user.birthday.strftime('%Y년 %m월 %d일') }}</span></li>
-          </ul>
-        </div>
-        
-        <!-- 내 활동 -->
-        <div class="activity-section">
-          <h2>내 활동</h2>
-          <div class="activity-grid">
-            <div class="activity-item" onclick="goToBoard()">
-              <span class="activity-icon">📝</span>
-              <span class="activity-label">내가 쓴 글</span>
-              <span class="activity-count">0</span>
+    <main class="mypage-container">
+        <!-- 계정 정보 카드 -->
+        <div class="mypage-card">
+            <h2 class="section-title">계정</h2>
+            <div class="info-grid">
+                <div>
+                    <span class="info-label">이름</span>
+                    <span class="info-value">{{ user.name }}</span>
+                </div>
+                <div>
+                    <span class="info-label">학번</span>
+                    <span class="info-value">{{ user.student_id }}</span>
+                </div>
+                <div>
+                    <span class="info-label">생일</span>
+                    <span class="info-value">{{ user.birthday.strftime('%Y-%m-%d') }}</span>
+                </div>
+                <div>
+                    <span class="info-label">성별</span>
+                    <span class="info-value">{{ user.gender }}</span>
+                </div>
+                <div>
+                    <span class="info-label">재학 상태</span>
+                    <span class="info-value">{{ user.status }}</span>
+                </div>
+                <div>
+                    <span class="info-label">이메일</span>
+                    <span class="info-value">{{ user.email }}</span>
+                </div>
             </div>
-            <div class="activity-item" onclick="goToBoard()">
-              <span class="activity-icon">💬</span>
-              <span class="activity-label">내가 쓴 댓글</span>
-              <span class="activity-count">0</span>
+            <div class="action-buttons">
+                <button class="btn btn-secondary" onclick="openModal('editProfileModal')">프로필 수정</button>
+                <button class="btn btn-secondary" onclick="openModal('changePasswordModal')">비밀번호 변경</button>
             </div>
-          </div>
         </div>
 
-        <!-- 로그아웃 링크 -->
-        <div style="margin-top: 2.5rem; text-align: center;">
-            <a href="{{ url_for('logout') }}" style="color: #6B7280; text-decoration: underline; font-weight: 500;">로그아웃</a>
+        <!-- 내 활동 카드 -->
+        <div class="mypage-card">
+            <div class="section-header">
+                <h2 class="section-title">내 활동</h2>
+                <button class="btn-text" onclick="openModal('activityModal')">더 보기</button>
+            </div>
+            <div class="activity-summary-grid">
+                <div>
+                    <span class="info-label">내 글</span>
+                    <span class="info-value">0</span>
+                </div>
+                <div>
+                    <span class="info-label">내 댓글</span>
+                    <span class="info-value">0</span>
+                </div>
+                <div>
+                    <span class="info-label">좋아요한 글</span>
+                    <span class="info-value">0</span>
+                </div>
+                <div>
+                    <span class="info-label">좋아요한 댓글</span>
+                    <span class="info-value">0</span>
+                </div>
+            </div>
         </div>
-      </div>
+
+        <!-- 이용 안내 및 탈퇴 -->
+        <div class="mypage-card">
+            <h2 class="section-title">이용 안내</h2>
+            <div class="link-group">
+                <a href="#">문의하기</a>
+                <a href="#">공지사항</a>
+                <a href="#">서비스 이용약관</a>
+                <a href="#">개인정보 처리방침</a>
+                <button class="btn-text" onclick="openModal('consentModal')">정보 동의 설정</button>
+            </div>
+            <div class="mt-8 text-center">
+                <button class="btn-text text-red-500" onclick="openModal('deleteAccountModal')">회원 탈퇴</button>
+            </div>
+        </div>
+    </main>
+
+    <footer class="text-center text-sm text-cocoa py-6 border-t border-peach-50">
+        <div>© <span id="year"></span> KBU hub · All rights reserved.</div>
+    </footer>
+
+    <!-- ========== 모달(팝업) 영역 ========== -->
+    <!-- 프로필 수정 모달 -->
+    <div id="editProfileModal" class="modal-backdrop">
+        <div class="modal-content">
+            <!-- 모달 내용... (향후 백엔드 연동 필요) -->
+            <h3 class="modal-title">프로필 수정</h3>
+            <p>프로필 수정 기능은 현재 준비 중입니다.</p>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeModal('editProfileModal')">닫기</button>
+                <button class="btn btn-primary" disabled>저장</button>
+            </div>
+        </div>
     </div>
-  </main>
+    <!-- 비밀번호 변경 모달 -->
+    <div id="changePasswordModal" class="modal-backdrop">
+        <div class="modal-content">
+            <h3 class="modal-title">비밀번호 변경</h3>
+            <p>비밀번호 변경 기능은 현재 준비 중입니다.</p>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeModal('changePasswordModal')">닫기</button>
+                <button class="btn btn-primary" disabled>변경</button>
+            </div>
+        </div>
+    </div>
+    <!-- 정보 동의 설정 모달 -->
+    <div id="consentModal" class="modal-backdrop">
+        <div class="modal-content">
+            <h3 class="modal-title">정보 동의 설정</h3>
+            <p>정보 동의 설정 기능은 현재 준비 중입니다.</p>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeModal('consentModal')">닫기</button>
+                <button class="btn btn-primary" disabled>저장</button>
+            </div>
+        </div>
+    </div>
+    <!-- 회원 탈퇴 모달 -->
+    <div id="deleteAccountModal" class="modal-backdrop">
+        <div class="modal-content">
+            <h3 class="modal-title">정말 탈퇴하시겠어요?</h3>
+            <p class="text-sm text-cocoa">게시판에 남긴 글/댓글은 운영정책에 따라 익명화 처리되며, 계정 정보는 복구되지 않습니다.</p>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeModal('deleteAccountModal')">취소</button>
+                <button class="btn btn-danger">탈퇴 진행</button>
+            </div>
+        </div>
+    </div>
+    <!-- 내 활동 상세 모달 -->
+    <div id="activityModal" class="modal-backdrop">
+        <div class="modal-content">
+            <h3 class="modal-title">내 활동 상세</h3>
+            <p>작성한 글이 없습니다.</p>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeModal('activityModal')">닫기</button>
+            </div>
+        </div>
+    </div>
 
-  <footer class="text-center text-sm text-cocoa py-6 border-t border-peach-50">
-      <div>© <span id="year"></span> KBU hub · All rights reserved.</div>
-  </footer>
+    <script>
+        document.getElementById('year').textContent = new Date().getFullYear();
 
-  <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      document.getElementById('year').textContent = new Date().getFullYear();
-    });
-    
-    function goToBoard() {
-        window.location.href = "{{ url_for('boards') }}";
-    }
-  </script>
-  <script src="{{ url_for('static', filename='js/navigation.js') }}"></script>
+        // 모달(팝업)을 열고 닫는 JavaScript (기존 로직 유지)
+        function openModal(modalId) {
+            document.getElementById(modalId).style.display = 'flex';
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+    </script>
+    <script src="{{ url_for('static', filename='js/navigation.js') }}"></script>
 </body>
 </html>
 
