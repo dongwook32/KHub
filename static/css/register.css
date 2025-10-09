@@ -36,18 +36,6 @@
   --spacing-xl: 2rem;
 }
 
-/* 다크모드 변수 */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-bg: #1F2937;
-    --color-bg-secondary: #111827;
-    --color-border: #374151;
-    --color-text: #F9FAFB;
-    --color-text-secondary: #D1D5DB;
-    --color-text-hint: #9CA3AF;
-  }
-}
-
 /* ========== 전역 알림 ========== */
 .global-alert {
   position: fixed;
