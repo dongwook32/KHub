@@ -23,6 +23,8 @@ class User(db.Model):
     gender = db.Column(db.String(10), nullable=False)
     birthday = db.Column(db.Date, nullable=False)
     status = db.Column(db.String(20), nullable=False)
+    nickname = db.Column(db.String(80), nullable=True)
+    bio = db.Column(db.Text, nullable=True)
 
 class Post(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -30,6 +32,15 @@ class Post(db.Model):
     content = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+
+# --- 🔑 임시: DB 테이블 생성을 위한 비밀 주소 (가장 중요!) ---
+@app.route('/init-db-super-secret-key-12345') # <-- 이 주소를 사용합니다.
+def init_db():
+    with app.app_context():
+        db.create_all()
+    return "데이터베이스의 User, Post 테이블이 성공적으로 생성/업데이트 되었습니다! 이제 app.py에서 이 코드를 삭제하고 다시 배포해주세요."
+# --------------------------------------------------------
+
 
 # --- 로그인 확인 '문지기' 함수 (데코레이터) ---
 def login_required(f):
@@ -145,6 +156,26 @@ def mypage():
     # 찾은 사용자 정보를 'user'라는 변수 이름으로 mypage.html에 전달합니다.
     return render_template('mypage.html', user=user)
 # -------------------------
+
+@app.route('/edit-profile', methods=['POST'])
+@login_required
+def edit_profile():
+    # 현재 로그인한 사용자 정보를 DB에서 찾기
+    user = User.query.get(session['user_id'])
+    
+    # 폼에서 수정된 데이터 가져오기
+    new_nickname = request.form.get('nickname')
+    new_bio = request.form.get('bio')
+    
+    # 가져온 데이터로 사용자 정보 업데이트
+    user.nickname = new_nickname
+    user.bio = new_bio
+    
+    # 변경사항을 DB에 최종 저장
+    db.session.commit()
+    
+    flash('프로필이 성공적으로 수정되었습니다.')
+    return redirect(url_for('mypage'))
 
 @app.route('/chat')
 @login_required
