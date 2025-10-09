@@ -8,15 +8,18 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 
 # ❗ 중요: 'change-me' 부분은 아무도 모르는 복잡한 문자열로 꼭 바꾸세요!
-app.secret_key = 'change-me' 
+# 이 키는 세션 데이터를 암호화하는 데 사용됩니다.
+app.secret_key = 'a-very-secret-and-long-random-string-for-security' 
 
 # --- 데이터베이스 설정 ---
+# Render 환경 변수에 설정된 데이터베이스 URL을 가져옵니다.
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 # ----------------------
 
 # --- 데이터베이스 모델(테이블) 정의 ---
+# 1. User 테이블 설계도
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     student_id = db.Column(db.String(80), unique=True, nullable=False)
@@ -26,7 +29,24 @@ class User(db.Model):
     gender = db.Column(db.String(10), nullable=False)
     birthday = db.Column(db.Date, nullable=False)
     status = db.Column(db.String(20), nullable=False)
+
+# 2. Post 테이블 설계도
+class Post(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(100), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    # user = db.relationship('User', backref='posts') # 작성자와 게시글을 연결
 # ---------------------------------
+
+# --- 임시: DB 테이블 생성을 위한 비밀 주소 ---
+@app.route('/init-db-super-secret-key-12345') # <-- 이 부분은 아무도 모르게 복잡하게 만드세요.
+def init_db():
+    with app.app_context():
+        db.create_all()
+    return "데이터베이스의 User, Post 테이블이 성공적으로 생성되었습니다! 이제 이 코드는 app.py에서 삭제해주세요."
+# ------------------------------------
 
 # --- 로그인 확인 '문지기' 함수 (데코레이터) ---
 def login_required(f):
@@ -37,8 +57,9 @@ def login_required(f):
             return redirect(url_for('login'))
         return f(*args, **kwargs)
     return decorated_function
-# ----------------------------------------
+# --------------------------------
 
+# --- 라우트(페이지) 정의 ---
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -71,52 +92,63 @@ def register():
         birthday_obj = datetime.strptime(birthday_str, '%Y-%m-%d').date()
         
         new_user = User(
-            student_id=student_id, 
-            email=email, 
-            password=hashed_password,
-            name=name,
-            gender=gender,
-            birthday=birthday_obj,
-            status=status
+            student_id=student_id, email=email, password=hashed_password,
+            name=name, gender=gender, birthday=birthday_obj, status=status
         )
-        
         db.session.add(new_user)
         db.session.commit()
 
-        # --- 여기부터 변경된 부분 ---
-        # 세션에 새로 가입한 사용자의 id를 저장하여 바로 로그인 처리
         session['user_id'] = new_user.id
-        
         flash(f"{new_user.name}님, 가입을 환영합니다!")
-        return redirect(url_for('mypage')) # 마이페이지로 이동
-        # -------------------------
+        return redirect(url_for('mypage'))
     
     return render_template('register.html')
 
-@app.route('/login', methods=['GET'])
+@app.route('/login', methods=['GET', 'POST'])
 def login():
+    if request.method == 'POST':
+        student_id = request.form.get('studentId')
+        password = request.form.get('password')
+
+        user = User.query.filter_by(student_id=student_id).first()
+
+        if user and check_password_hash(user.password, password):
+            session['user_id'] = user.id
+            flash(f"{user.name}님, 환영합니다!")
+            return redirect(url_for('mypage'))
+            
+        flash("아이디(학번) 또는 비밀번호를 확인하세요.")
+    
     return render_template('login.html')
-
-@app.route('/login', methods=['POST'])
-def login_post():
-    student_id = request.form.get('studentId')
-    password = request.form.get('password')
-
-    user = User.query.filter_by(student_id=student_id).first()
-
-    if user and check_password_hash(user.password, password):
-        session['user_id'] = user.id
-        flash(f"{user.name}님, 환영합니다!")
-        return redirect(url_for('mypage'))
-        
-    flash("아이디(학번) 또는 비밀번호를 확인하세요.")
-    return redirect(url_for('login'))
 
 @app.route('/logout')
 def logout():
     session.clear()
     flash("성공적으로 로그아웃되었습니다.")
     return redirect(url_for('index'))
+
+@app.route('/boards')
+@login_required
+def boards():
+    posts = Post.query.order_by(Post.created_at.desc()).all()
+    return render_template('boards.html', posts=posts)
+
+@app.route('/create-post', methods=['GET', 'POST'])
+@login_required
+def create_post():
+    if request.method == 'POST':
+        title = request.form.get('title')
+        content = request.form.get('content')
+        user_id = session['user_id']
+        if not title or not content:
+            flash("제목과 내용을 모두 입력해주세요.")
+            return render_template('create_post.html')
+        new_post = Post(title=title, content=content, user_id=user_id)
+        db.session.add(new_post)
+        db.session.commit()
+        flash("새 글이 성공적으로 등록되었습니다.")
+        return redirect(url_for('boards'))
+    return render_template('create_post.html')
 
 @app.route('/mypage')
 @login_required
@@ -131,11 +163,6 @@ def chat():
     anon_profile = session.get('anon_profile', {})
     return render_template('chat.html', anon_profile=anon_profile)
 
-@app.route('/boards')
-@login_required
-def boards():
-    return render_template('boards.html')
-
 @app.route('/app')
 def app_page():
     return render_template('app.html')
@@ -145,16 +172,14 @@ def app_page():
 def profile_setup():
     if request.method == 'POST':
         session['anon_profile'] = {
-            'year': request.form.get('year'),
-            'gender': request.form.get('gender'),
+            'year': request.form.get('year'), 'gender': request.form.get('gender'),
             'nickname': request.form.get('nickname', '익명의친구'),
-            'bio': request.form.get('bio', ''),
-            'interests': request.form.getlist('interests')
+            'bio': request.form.get('bio', ''), 'interests': request.form.getlist('interests')
         }
         return redirect(url_for('chat'))
-    
     return render_template('profile-setup.html')
 
+# 로컬에서 테스트할 때만 실행됩니다.
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
