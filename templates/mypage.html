@@ -31,22 +31,21 @@
 <body class="bg-cream">
   <div class="top-grad h-[160px] w-full absolute inset-0 -z-10 pointer-events-none"></div>
 
-  <!-- 헤더 (다른 페이지와 동일하게 유지) -->
+  <!-- 헤더 -->
   <header class="fixed top-0 left-0 right-0 z-50 border-b border-peach/40 glass">
-      <!-- navigation.js가 헤더 내용을 동적으로 채웁니다 -->
-      <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-4">
-        <a href="{{ url_for('index') }}" class="flex items-center gap-2 font-extrabold text-lg">
-          <img src="{{ url_for('static', filename='images/logo.png') }}" alt="KBU hub" class="w-9 h-9 rounded-full shadow-[0_8px_18px_rgba(255,159,128,.25)]">
-          <span>hub</span>
-        </a>
-        <nav class="ml-auto hidden md:flex">
-          <div id="navPill" class="nav-pill"></div>
-        </nav>
-        <button id="menuBtn" class="md:hidden ml-auto p-2 rounded-full border border-peach/60">☰</button>
-      </div>
-      <div id="mobileNav" class="hidden md:hidden px-4 pb-3 border-t border-peach/40 bg-white/70">
-        <div class="flex flex-col gap-1 py-2 text-sm"></div>
-      </div>
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-4">
+      <a href="{{ url_for('index') }}" class="flex items-center gap-2 font-extrabold text-lg">
+        <img src="{{ url_for('static', filename='images/logo.png') }}" alt="KBU hub" class="w-9 h-9 rounded-full shadow-[0_8px_18px_rgba(255,159,128,.25)]">
+        <span>hub</span>
+      </a>
+      <nav class="ml-auto hidden md:flex">
+        <div id="navPill" class="nav-pill"></div>
+      </nav>
+      <button id="menuBtn" class="md:hidden ml-auto p-2 rounded-full border border-peach/60">☰</button>
+    </div>
+    <div id="mobileNav" class="hidden md:hidden px-4 pb-3 border-t border-peach/40 bg-white/70">
+      <div class="flex flex-col gap-1 py-2 text-sm"></div>
+    </div>
   </header>
 
   <main style="margin-top: 80px;">
@@ -56,9 +55,7 @@
         <div class="profile-header">
           <img src="{{ url_for('static', filename='images/default-profile.png') }}" alt="프로필 사진" class="profile-image">
           <div>
-            <!-- [수정] '정준영' -> 서버에서 받은 user.name으로 변경 -->
             <h1 class="profile-name">{{ user.name }}</h1>
-            <!-- [수정] 고정 텍스트 -> 서버에서 받은 학번과 재학상태로 변경 -->
             <p class="profile-info">{{ user.student_id }} / {{ user.status }}</p>
           </div>
         </div>
@@ -67,14 +64,13 @@
         <div class="profile-details">
           <h2>기본 정보</h2>
           <ul>
-            <!-- [수정] 각 항목을 서버 데이터로 변경 -->
             <li><strong>이메일</strong> <span>{{ user.email }}</span></li>
             <li><strong>성별</strong> <span>{{ user.gender }}</span></li>
             <li><strong>생년월일</strong> <span>{{ user.birthday.strftime('%Y년 %m월 %d일') }}</span></li>
           </ul>
         </div>
         
-        <!-- 내 활동 (이 부분은 기능 구현 시 추가) -->
+        <!-- 내 활동 (카운트는 나중에 기능 구현 시 추가) -->
         <div class="activity-section">
           <h2>내 활동</h2>
           <div class="activity-grid">
@@ -91,9 +87,9 @@
           </div>
         </div>
 
-        <!-- 로그아웃 버튼 -->
+        <!-- 로그아웃 링크 -->
         <div style="margin-top: 2.5rem; text-align: center;">
-            <a href="{{ url_for('logout') }}" style="color: #6B7280; text-decoration: underline;">로그아웃</a>
+            <a href="{{ url_for('logout') }}" style="color: #6B7280; text-decoration: underline; font-weight: 500;">로그아웃</a>
         </div>
       </div>
     </div>
@@ -104,15 +100,10 @@
   </footer>
 
   <script>
-    // 페이지 로드 시 년도 설정
     document.addEventListener('DOMContentLoaded', function() {
       document.getElementById('year').textContent = new Date().getFullYear();
     });
     
-    // [수정] localStorage에서 사용자 정보를 불러오던 JavaScript 로직은
-    // 이제 서버에서 직접 데이터를 내려주므로 더 이상 필요 없어 삭제합니다.
-    
-    // '내 활동' 부분의 goToBoard 함수는 간단하게 게시판으로만 이동하도록 유지합니다.
     function goToBoard() {
         window.location.href = "{{ url_for('boards') }}";
     }
