@@ -33,15 +33,6 @@ class Post(db.Model):
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
-# --- 🔑 임시: DB 테이블 생성을 위한 비밀 주소 (가장 중요!) ---
-@app.route('/init-db-super-secret-key-12345') # <-- 이 주소를 사용합니다.
-def init_db():
-    with app.app_context():
-        db.create_all()
-    return "데이터베이스의 User, Post 테이블이 성공적으로 생성/업데이트 되었습니다! 이제 app.py에서 이 코드를 삭제하고 다시 배포해주세요."
-# --------------------------------------------------------
-
-
 # --- 로그인 확인 '문지기' 함수 (데코레이터) ---
 def login_required(f):
     @wraps(f)
