@@ -6,20 +6,14 @@ from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
-
-# ❗ 중요: 'change-me' 부분은 아무도 모르는 복잡한 문자열로 꼭 바꾸세요!
-# 이 키는 세션 데이터를 암호화하는 데 사용됩니다.
 app.secret_key = 'a-very-secret-and-long-random-string-for-security' 
 
 # --- 데이터베이스 설정 ---
-# Render 환경 변수에 설정된 데이터베이스 URL을 가져옵니다.
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
-# ----------------------
 
 # --- 데이터베이스 모델(테이블) 정의 ---
-# 1. User 테이블 설계도
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     student_id = db.Column(db.String(80), unique=True, nullable=False)
@@ -30,15 +24,12 @@ class User(db.Model):
     birthday = db.Column(db.Date, nullable=False)
     status = db.Column(db.String(20), nullable=False)
 
-# 2. Post 테이블 설계도
 class Post(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(100), nullable=False)
     content = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    # user = db.relationship('User', backref='posts') # 작성자와 게시글을 연결
-# ---------------------------------
 
 # --- 로그인 확인 '문지기' 함수 (데코레이터) ---
 def login_required(f):
@@ -49,7 +40,6 @@ def login_required(f):
             return redirect(url_for('login'))
         return f(*args, **kwargs)
     return decorated_function
-# --------------------------------
 
 # --- 라우트(페이지) 정의 ---
 @app.route('/')
@@ -58,7 +48,9 @@ def index():
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
+    # ... (이전과 동일한 회원가입 로직) ...
     if request.method == 'POST':
+        # ... form data ...
         student_id = request.form.get('student_id')
         email = request.form.get('email')
         password = request.form.get('password')
@@ -71,11 +63,9 @@ def register():
         if password != password_confirm:
             flash('비밀번호가 일치하지 않습니다.')
             return redirect(url_for('register'))
-
         if User.query.filter_by(student_id=student_id).first():
             flash('이미 가입된 학번입니다.')
             return redirect(url_for('register'))
-
         if User.query.filter_by(email=email).first():
             flash('이미 사용 중인 이메일입니다.')
             return redirect(url_for('register'))
@@ -93,24 +83,20 @@ def register():
         session['user_id'] = new_user.id
         flash(f"{new_user.name}님, 가입을 환영합니다!")
         return redirect(url_for('mypage'))
-    
     return render_template('register.html')
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         student_id = request.form.get('studentId')
         password = request.form.get('password')
-
         user = User.query.filter_by(student_id=student_id).first()
-
         if user and check_password_hash(user.password, password):
             session['user_id'] = user.id
             flash(f"{user.name}님, 환영합니다!")
             return redirect(url_for('mypage'))
-            
         flash("아이디(학번) 또는 비밀번호를 확인하세요.")
-    
     return render_template('login.html')
 
 @app.route('/logout')
@@ -142,10 +128,23 @@ def create_post():
         return redirect(url_for('boards'))
     return render_template('create_post.html')
 
+# --- 여기를 수정했습니다 ---
 @app.route('/mypage')
 @login_required
 def mypage():
-    return render_template('mypage.html')
+    # 세션에 저장된 user_id를 이용해 데이터베이스에서 현재 사용자 정보를 찾습니다.
+    user_id = session.get('user_id')
+    # .get()을 사용하면 혹시 모를 오류를 방지할 수 있습니다.
+    user = User.query.get(user_id) if user_id else None
+    
+    # 사용자 정보가 없으면 홈페이지로 보냅니다.
+    if user is None:
+        flash("사용자 정보를 찾을 수 없습니다. 다시 로그인해주세요.")
+        return redirect(url_for('login'))
+
+    # 찾은 사용자 정보를 'user'라는 변수 이름으로 mypage.html에 전달합니다.
+    return render_template('mypage.html', user=user)
+# -------------------------
 
 @app.route('/chat')
 @login_required
@@ -171,8 +170,3 @@ def profile_setup():
         return redirect(url_for('chat'))
     return render_template('profile-setup.html')
 
-# 로컬에서 테스트할 때만 실행됩니다.
-if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-    app.run(debug=True)
