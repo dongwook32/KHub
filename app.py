@@ -40,14 +40,6 @@ class Post(db.Model):
     # user = db.relationship('User', backref='posts') # 작성자와 게시글을 연결
 # ---------------------------------
 
-# --- 임시: DB 테이블 생성을 위한 비밀 주소 ---
-@app.route('/init-db-super-secret-key-12345') # <-- 이 부분은 아무도 모르게 복잡하게 만드세요.
-def init_db():
-    with app.app_context():
-        db.create_all()
-    return "데이터베이스의 User, Post 테이블이 성공적으로 생성되었습니다! 이제 이 코드는 app.py에서 삭제해주세요."
-# ------------------------------------
-
 # --- 로그인 확인 '문지기' 함수 (데코레이터) ---
 def login_required(f):
     @wraps(f)
