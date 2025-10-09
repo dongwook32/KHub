@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KBU hub | 마이페이지</title>
+  <link rel="icon" href="{{ url_for("static", filename="images/logo.png") }}">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="{{ url_for("static", filename="css/nav.css") }}">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: { peach: '#FFC8B2', peachDeep: '#FF9F80', cream: '#FFF7F2', cocoa:'#6B7280', ink:'#1F2937', mint:'#B7F4E6', lemon:'#FFF3A3' },
+          boxShadow: { soft:'0 10px 30px rgba(255,159,128,.18)', glow:'0 0 0 0 rgba(255,159,128,.0)', card:'0 10px 24px rgba(17,24,39,.08)' },
+          borderRadius: { bubble:'999px', xl2:'1.25rem' }
+        }
+      }
+    }
+  </script>
+  <style>
+    html, body { font-family: Pretendard, system-ui, -apple-system, Segoe UI, Roboto, 'Noto Sans KR', sans-serif; }
+    .top-grad{ background: radial-gradient(60% 60% at 0% 0%, #FFF0E7 0%, rgba(255,240,231,0) 60%), radial-gradient(60% 60% at 100% 0%, #FFE7DB 0%, rgba(255,231,219,0) 60%); }
+    .glass{ background: rgba(255,255,255,.7); backdrop-filter: blur(10px); }
+    /* 네비게이션 스타일은 nav.css (CSS Cascade Layers)에서 관리 */
+    
+    /* 헤더 크기 통일 및 흔들림 방지 */
+    header {
+        height: 80px !important;
+        min-height: 80px !important;
+        max-height: 80px !important;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        z-index: 9999 !important;
+        transform: translateZ(0) !important;
+        backface-visibility: hidden !important;
+        will-change: auto !important;
+    }
+    
+    header > div:first-child {
+        height: 100% !important;
+        min-height: 100% !important;
+        max-height: 100% !important;
+        transform: translateZ(0) !important;
+        padding: 12px 16px !important;
+    }
+    
+    /* 헤더 스타일은 navigation.css에서 관리 */
+    
+    /* 익명카드, 계정, 내 활동 섹션 글씨 크기 증가 */
+    .info-label, .info-value, .account-label, .account-value, .activity-label, .activity-count, .activity-recent {
+        font-size: 15px !important;
+    }
+    
+    .section-title {
+        font-size: 18px !important;
+    }
+  </style>
+  <link rel="stylesheet" href="{{ url_for("static", filename="css/mypage.css") }}">
+  <style>
+    .interest-chip.selected {
+      background: linear-gradient(135deg, #FF9F80, #FFC8B2);
+      border-color: #FF9F80;
+      color: white;
+    }
+    .gender-btn.active {
+      background: #f0f0f0;
+      border-color: #FF9F80;
+      border-width: 2px;
+      color: #333;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .badge-secondary {
+      background-color: #f1f5f9;
+      color: #64748b;
+      border: 1px solid #e2e8f0;
+    }
+    .activity-tabs {
+      display: flex;
+      border-bottom: 1px solid #e2e8f0;
+      margin-bottom: 20px;
+    }
+    .activity-tab {
+      padding: 12px 20px;
+      border: none;
+      background: none;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.3s ease;
+    }
+    .activity-tab.active {
+      color: #FF9F80;
+      border-bottom-color: #FF9F80;
+      font-weight: 600;
+    }
+    .activity-tab-content {
+      display: none;
+    }
+    .activity-tab-content.active {
+      display: block;
+    }
+    .activity-list {
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    .activity-item {
+      padding: 12px;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      background: #fafafa;
+      position: relative;
+    }
+    .activity-item-clickable {
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .activity-item-clickable:hover {
+      background: #f0f9ff;
+      border-color: #FF9F80;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(255, 159, 128, 0.15);
+    }
+    .activity-item-arrow {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #FF9F80;
+      font-weight: bold;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    .activity-item-clickable:hover .activity-item-arrow {
+      opacity: 1;
+    }
+    .activity-item-title {
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .activity-item-content {
+      color: #666;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+    .activity-item-meta {
+      font-size: 12px;
+      color: #999;
+    }
+    .activity-item-empty {
+      text-align: center;
+      color: #999;
+      padding: 40px;
+    }
+    
+    /* 통일된 Footer 스타일 */
+    footer {
+        border-top: 1px solid rgba(255, 200, 178, 0.5);
+        margin-top: 0;
+        padding: 0;
+    }
+    
+    footer > div {
+        max-width: 72rem;
+        margin: 0 auto;
+        padding: 1.5rem 1rem;
+        font-size: 0.875rem;
+        line-height: 1.25rem;
+        color: #6B7280;
+        text-align: center;
+    }
+  </style>
+</head>
+<body class="bg-cream">
+  <div class="top-grad h-[160px] w-full absolute inset-0 -z-10 pointer-events-none"></div>
+
+  <header class="fixed top-0 left-0 right-0 z-50 border-b border-peach/40 glass">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-4">
+      <a href="{{ url_for('index') }}" class="flex items-center gap-2 font-extrabold text-lg">
+        <img src="{{ url_for("static", filename="images/logo.png") }}" alt="KBU hub" class="w-9 h-9 rounded-full shadow-[0_8px_18px_rgba(255,159,128,.25)]">
+        <span>hub</span>
+      </a>
+      <nav class="ml-auto hidden md:flex">
+        <div id="navPill" class="nav-pill">
+          <!-- 네비게이션 아이템은 navigation.js에서 동적으로 생성됩니다 -->
+        </div>
+      </nav>
+      <button id="menuBtn" class="md:hidden ml-auto p-2 rounded-full border border-peach/60">☰</button>
+    </div>
+    <div id="mobileNav" class="hidden md:hidden px-4 pb-3 border-t border-peach/40 bg-white/70">
+      <div class="flex flex-col gap-1 py-2 text-sm">
+        <!-- 모바일 네비게이션 아이템은 navigation.js에서 동적으로 생성됩니다 -->
+      </div>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-6xl px-4 md:px-6 py-8 space-y-8" style="margin-top: 80px;">
+    <!-- 상단 히어로 섹션 -->
+    <div class="hero-summary">
+      <div class="hero-bg-blur hero-bg-blur-1"></div>
+      <div class="hero-bg-blur hero-bg-blur-2"></div>
+      <div class="hero-content">
+        <div class="hero-avatar">
+          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-orange-400">
+            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+        </div>
+        <div class="hero-info">
+          <div class="hero-title">내 정보</div>
+          <div class="hero-name">
+            <span id="userName">정준영</span>
+          </div>
+          <div class="hero-details">
+            <span id="userDept">한국성서대</span>
+          </div>
+          <div class="hero-details">
+            <span id="userStudentId">2022</span>학번 · <span id="userStatus">재학생</span>
+          </div>
+          <div class="hero-intro" id="userIntro"></div>
+        </div>
+        <div class="hero-actions">
+          <button class="btn btn-destructive" onclick="handleLogout()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16 17 21 12 16 7"/>
+              <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+            로그아웃
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 섹션 1: 프로필 & 익명카드 -->
+    <div class="section-card">
+      <div class="section-header">
+        <div class="section-title">익명카드</div>
+        <button class="btn btn-outline btn-sm" onclick="openModal('profileModal')">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+          </svg>
+          수정
+        </button>
+      </div>
+      <div class="section-content">
+        <div class="info-item">
+          <div class="info-label">닉네임</div>
+          <div class="info-value" id="anonNickname">익명카드가 설정되지 않았습니다.</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">학번</div>
+          <div class="info-value" id="anonYear">-</div>
+          </div>
+        <div class="info-item">
+          <div class="info-label">성별</div>
+          <div class="info-value" id="anonGender">-</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">자기소개</div>
+          <div class="info-value" id="anonBio">-</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">관심사</div>
+          <div class="interests-list" id="anonInterests">
+            <span class="text-gray-500">선택된 관심사가 없습니다.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 섹션 2: 계정 -->
+    <div class="section-card">
+      <div class="section-header">
+        <div class="section-title">계정</div>
+        <button class="btn btn-outline btn-sm" onclick="openModal('accountModal')">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+          비밀번호 변경
+        </button>
+      </div>
+      <div class="account-grid">
+        <div class="account-card">
+          <div class="account-label">이름</div>
+          <div class="account-value" id="accountName">정준영</div>
+        </div>
+        <div class="account-card">
+          <div class="account-label">학번</div>
+          <div class="account-value" id="accountStudentId">2022학번</div>
+        </div>
+        <div class="account-card">
+          <div class="account-label">생일</div>
+          <div class="account-value" id="accountBirthday">1999-01-01</div>
+        </div>
+        <div class="account-card">
+          <div class="account-label">성별</div>
+          <div class="account-value" id="accountGender">남자</div>
+        </div>
+        <div class="account-card">
+          <div class="account-label">재학 상태</div>
+          <div class="account-value" id="accountStatus">재학생</div>
+        </div>
+        <div class="account-card">
+          <div class="account-label">이메일</div>
+          <div class="account-value" id="accountEmail">user@bible.ac.kr</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 섹션 3: 내 활동 -->
+    <div class="section-card">
+      <div class="section-header">
+        <div class="section-title">내 활동</div>
+        <button class="btn btn-outline btn-sm" onclick="openModal('activityModal')">
+          더 보기
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="5" y1="12" x2="19" y2="12"/>
+            <polyline points="12 5 19 12 12 19"/>
+          </svg>
+        </button>
+      </div>
+      <div class="activity-grid">
+        <div class="activity-card">
+          <div class="activity-label">내 글</div>
+          <div class="activity-count" id="myPostsCount">0</div>
+          <div class="activity-recent" id="myPostsRecent">작성한 글이 없습니다.</div>
+        </div>
+        <div class="activity-card">
+          <div class="activity-label">내 댓글</div>
+          <div class="activity-count" id="myCommentsCount">0</div>
+          <div class="activity-recent" id="myCommentsRecent">작성한 댓글이 없습니다.</div>
+        </div>
+        <div class="activity-card">
+          <div class="activity-label">좋아요한 글</div>
+          <div class="activity-count" id="myLikesCount">0</div>
+          <div class="activity-recent" id="myLikesRecent">좋아요한 글이 없습니다.</div>
+        </div>
+        <div class="activity-card">
+          <div class="activity-label">좋아요한 댓글</div>
+          <div class="activity-count" id="myCommentLikesCount">0</div>
+          <div class="activity-recent" id="myCommentLikesRecent">좋아요한 댓글이 없습니다.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 섹션 4: 이용 안내 & 기타 -->
+    <div class="section-card">
+      <div class="section-header">
+        <div class="section-title">이용 안내</div>
+      </div>
+      <div class="links-grid">
+        <a href="#" class="link-card">문의하기</a>
+        <a href="#" class="link-card">공지사항</a>
+        <a href="#" class="link-card">서비스 이용약관</a>
+        <a href="#" class="link-card">개인정보 처리방침</a>
+        <a href="#" class="link-card">청소년 보호 정책</a>
+        <a href="#" class="link-card" onclick="event.preventDefault(); openModal('consentModal');">정보 동의 설정</a>
+      </div>
+      <div class="footer-actions">
+        <div class="copyright">© 2025 KBU Hub</div>
+        <button class="btn btn-destructive" onclick="openModal('deleteModal')">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"/>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+          </svg>
+          회원 탈퇴
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <!-- 프로필 수정 모달 -->
+  <div id="profileModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">프로필 수정</div>
+        <button class="modal-close" onclick="closeModal('profileModal')">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>닉네임</label>
+          <input id="editAnonNickname" type="text" placeholder="닉네임을 입력하세요" maxlength="10">
+        </div>
+        <div class="form-group">
+          <label>학번</label>
+          <select id="editAnonYear">
+            <option value="">선택해주세요</option>
+            <option value="25학번">25학번</option>
+            <option value="24학번">24학번</option>
+            <option value="23학번">23학번</option>
+            <option value="22학번">22학번</option>
+            <option value="21학번">21학번</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>성별</label>
+          <div class="flex gap-2">
+            <button type="button" class="gender-btn flex-1 py-2 px-4 border rounded" data-gender="남자" onclick="selectAnonGender(this)">남자</button>
+            <button type="button" class="gender-btn flex-1 py-2 px-4 border rounded" data-gender="여자" onclick="selectAnonGender(this)">여자</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>자기소개</label>
+          <textarea id="editAnonBio" rows="4" placeholder="자기소개를 입력하세요" maxlength="100"></textarea>
+        </div>
+        <div class="form-group">
+          <label>관심사</label>
+          <div id="editAnonInterests" class="flex flex-wrap gap-2">
+            <button type="button" class="interest-chip px-3 py-1 border rounded-full text-sm" data-value="영화" onclick="toggleAnonInterest(this)">영화</button>
+            <button type="button" class="interest-chip px-3 py-1 border rounded-full text-sm" data-value="운동" onclick="toggleAnonInterest(this)">운동</button>
+            <button type="button" class="interest-chip px-3 py-1 border rounded-full text-sm" data-value="게임" onclick="toggleAnonInterest(this)">게임</button>
+            <button type="button" class="interest-chip px-3 py-1 border rounded-full text-sm" data-value="음악" onclick="toggleAnonInterest(this)">음악</button>
+            <button type="button" class="interest-chip px-3 py-1 border rounded-full text-sm" data-value="카페" onclick="toggleAnonInterest(this)">카페</button>
+            <button type="button" class="interest-chip px-3 py-1 border rounded-full text-sm" data-value="여행" onclick="toggleAnonInterest(this)">여행</button>
+            <button type="button" class="interest-chip px-3 py-1 border rounded-full text-sm" data-value="스터디" onclick="toggleAnonInterest(this)">스터디</button>
+            <button type="button" class="interest-chip px-3 py-1 border rounded-full text-sm" data-value="독서" onclick="toggleAnonInterest(this)">독서</button>
+            <button type="button" class="interest-chip px-3 py-1 border rounded-full text-sm" data-value="맛집" onclick="toggleAnonInterest(this)">맛집</button>
+        </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" onclick="saveAnonProfile()">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 비밀번호 변경 모달 -->
+  <div id="accountModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">비밀번호 변경</div>
+        <button class="modal-close" onclick="closeModal('accountModal')">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>현재 비밀번호</label>
+          <input type="password" id="currentPassword" placeholder="현재 비밀번호를 입력하세요">
+        </div>
+        <div class="form-group">
+          <label>새 비밀번호</label>
+          <input type="password" id="newPassword" placeholder="새 비밀번호를 입력하세요">
+        </div>
+        <div class="form-group">
+          <label>새 비밀번호 확인</label>
+          <input type="password" id="confirmPassword" placeholder="새 비밀번호를 다시 입력하세요">
+        </div>
+        <div class="text-xs text-muted-foreground">8자 이상, 영문/숫자 조합 권장</div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" onclick="changePassword()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+          변경
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 정보 동의 설정 모달 -->
+  <div id="consentModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">정보 동의 설정</div>
+        <button class="modal-close" onclick="closeModal('consentModal')">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="consent-item">
+          <span>마케팅 이메일 수신</span>
+          <label class="switch">
+            <input type="checkbox">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="consent-item">
+          <span>알림 푸시 수신</span>
+          <label class="switch">
+            <input type="checkbox">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="consent-item">
+          <span>익명 데이터 통계 활용</span>
+          <label class="switch">
+            <input type="checkbox" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" onclick="closeModal('consentModal')">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 회원 탈퇴 모달 -->
+  <div id="deleteModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">정말 탈퇴하시겠어요?</div>
+        <button class="modal-close" onclick="closeModal('deleteModal')">×</button>
+      </div>
+      <div class="modal-body">
+        <p class="text-sm text-muted-foreground">게시판에 남긴 글/댓글은 운영정책에 따라 익명화 처리되며, 계정 정보는 복구되지 않습니다.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('deleteModal')">취소</button>
+        <button class="btn btn-destructive">탈퇴 진행</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 내 활동 상세 모달 -->
+  <div id="activityModal" class="modal">
+    <div class="modal-content" style="max-width: 800px;">
+      <div class="modal-header">
+        <div class="modal-title">내 활동 상세</div>
+        <button class="modal-close" onclick="closeModal('activityModal')">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="activity-tabs">
+          <button class="activity-tab active" onclick="showActivityTab('posts')">내 글</button>
+          <button class="activity-tab" onclick="showActivityTab('comments')">내 댓글</button>
+          <button class="activity-tab" onclick="showActivityTab('likes')">좋아요한 글</button>
+          <button class="activity-tab" onclick="showActivityTab('commentLikes')">좋아요한 댓글</button>
+        </div>
+        
+        <div id="postsTab" class="activity-tab-content active">
+          <div class="activity-list" id="myPostsList">
+            <div class="activity-item-empty">작성한 글이 없습니다.</div>
+          </div>
+        </div>
+        
+        <div id="commentsTab" class="activity-tab-content">
+          <div class="activity-list" id="myCommentsList">
+            <div class="activity-item-empty">작성한 댓글이 없습니다.</div>
+          </div>
+        </div>
+        
+        <div id="likesTab" class="activity-tab-content">
+          <div class="activity-list" id="myLikesList">
+            <div class="activity-item-empty">좋아요한 글이 없습니다.</div>
+          </div>
+        </div>
+        
+        <div id="commentLikesTab" class="activity-tab-content">
+          <div class="activity-list" id="myCommentLikesList">
+            <div class="activity-item-empty">좋아요한 댓글이 없습니다.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div>
+      © <span id="year"></span> KBU hub · All rights reserved.
+    </div>
+  </footer>
+
+  <script src="{{ url_for("static", filename="js/script.js") }}"></script>
+  <script>
+    // 모바일 메뉴는 navigation.js에서 처리됩니다
+
+    // 모달 열기/닫기
+    function openModal(modalId) {
+      document.getElementById(modalId).style.display = 'flex';
+    }
+
+    function closeModal(modalId) {
+      document.getElementById(modalId).style.display = 'none';
+    }
+
+    // 모달 외부 클릭시 닫기
+    window.addEventListener('click', (e) => {
+      if (e.target.classList.contains('modal')) {
+        e.target.style.display = 'none';
+      }
+    });
+
+    // 익명카드 정보 로드
+    function loadAnonProfile() {
+      try {
+        const anonProfile = JSON.parse(localStorage.getItem('anonProfile') || 'null');
+        if (anonProfile) {
+          document.getElementById('anonNickname').textContent = anonProfile.nickname || '익명의친구';
+          document.getElementById('anonYear').textContent = anonProfile.year || '-';
+          document.getElementById('anonGender').textContent = anonProfile.gender || '-';
+          document.getElementById('anonBio').textContent = anonProfile.bio || '-';
+          
+          // 관심사 표시
+          const interestsContainer = document.getElementById('anonInterests');
+          if (anonProfile.interests && anonProfile.interests.length > 0) {
+            const interestsHTML = anonProfile.interests.map(interest => 
+              `<span class="badge badge-secondary">#${interest}</span>`
+            ).join('');
+            interestsContainer.innerHTML = interestsHTML;
+          } else {
+            interestsContainer.innerHTML = '<span class="text-gray-500">선택된 관심사가 없습니다.</span>';
+          }
+        }
+      } catch (e) {
+        console.error('익명카드 로드 실패:', e);
+      }
+    }
+
+    // 성별 선택 함수
+    function selectAnonGender(button) {
+      const allGenderBtns = document.querySelectorAll('.gender-btn');
+      allGenderBtns.forEach(btn => btn.classList.remove('active'));
+      button.classList.add('active');
+    }
+
+    // 관심사 토글 함수
+    function toggleAnonInterest(button) {
+      button.classList.toggle('selected');
+    }
+
+    // 사용 중인 닉네임 목록 (실제로는 서버에서 가져와야 함)
+    const usedNicknames = [
+      '익명1', '익명2', '익명3', '익명4', '익명5', '익명6', '익명7', '익명8', '익명9', '익명10',
+      '익명11', '익명12', '익명13', '익명14', '익명15', '익명16', '익명17', '익명18', '익명19',
+      '익명의친구', '익명의학생', '익명의동료', '신비한친구', '알수없는누군가'
+    ];
+    
+    // 닉네임 중복 검사 함수
+    function isNicknameAvailable(nickname) {
+      return !usedNicknames.includes(nickname);
+    }
+
+    // 익명카드 저장
+    function saveAnonProfile() {
+      const nickname = document.getElementById('editAnonNickname').value.trim() || '익명의친구';
+      const year = document.getElementById('editAnonYear').value;
+      const gender = document.querySelector('.gender-btn.active')?.dataset.gender || '남자';
+      const bio = document.getElementById('editAnonBio').value.trim();
+      const interests = Array.from(document.querySelectorAll('.interest-chip.selected')).map(chip => chip.dataset.value);
+      
+      if (!year) {
+        alert('학번을 선택해주세요.');
+        return;
+      }
+      
+      if (interests.length === 0) {
+        alert('관심사를 최소 1개 이상 선택해주세요.');
+        return;
+      }
+      
+      // 닉네임 중복 검증 (기본값이 아닌 경우에만)
+      if (nickname !== '익명의친구' && !isNicknameAvailable(nickname)) {
+        alert('이미 사용 중인 닉네임입니다. 다른 닉네임을 입력해주세요!');
+        document.getElementById('editAnonNickname').focus();
+        return;
+      }
+      
+      const anonProfile = { nickname, year, gender, bio, interests };
+      localStorage.setItem('anonProfile', JSON.stringify(anonProfile));
+      
+      loadAnonProfile(); // UI 업데이트
+      closeModal('profileModal');
+      alert('익명카드가 저장되었습니다.');
+    }
+
+    // 모달 열 때 기존 데이터 로드
+    function openModal(modalId) {
+      document.getElementById(modalId).style.display = 'flex';
+      
+      if (modalId === 'profileModal') {
+        const anonProfile = JSON.parse(localStorage.getItem('anonProfile') || 'null');
+        if (anonProfile) {
+          document.getElementById('editAnonNickname').value = anonProfile.nickname || '';
+          document.getElementById('editAnonYear').value = anonProfile.year || '';
+          document.getElementById('editAnonBio').value = anonProfile.bio || '';
+          
+          // 성별 선택 복원
+          const genderBtns = document.querySelectorAll('.gender-btn');
+          genderBtns.forEach(btn => btn.classList.remove('active'));
+          const selectedGenderBtn = document.querySelector(`[data-gender="${anonProfile.gender}"]`);
+          if (selectedGenderBtn) selectedGenderBtn.classList.add('active');
+          
+          // 관심사 선택 복원
+          const interestChips = document.querySelectorAll('.interest-chip');
+          interestChips.forEach(chip => chip.classList.remove('selected'));
+          if (anonProfile.interests) {
+            anonProfile.interests.forEach(interest => {
+              const chip = document.querySelector(`[data-value="${interest}"]`);
+              if (chip) chip.classList.add('selected');
+            });
+          }
+          
+          // 닉네임 실시간 검증 이벤트 리스너 추가
+          const nicknameInput = document.getElementById('editAnonNickname');
+          nicknameInput.addEventListener('input', function() {
+            const nicknameValue = this.value.trim();
+            const nicknameError = document.getElementById('nickname-error-modal');
+            
+            if (nicknameValue && !isNicknameAvailable(nicknameValue)) {
+              if (!nicknameError) {
+                const errorDiv = document.createElement('div');
+                errorDiv.id = 'nickname-error-modal';
+                errorDiv.className = 'text-red-500 text-sm mt-1';
+                errorDiv.innerHTML = '⚠️ 이미 사용 중인 닉네임입니다.';
+                this.parentNode.appendChild(errorDiv);
+              }
+              this.classList.add('border-red-400');
+              this.classList.remove('border-gray-300');
+            } else {
+              if (nicknameError) {
+                nicknameError.remove();
+              }
+              this.classList.remove('border-red-400');
+              this.classList.add('border-gray-300');
+            }
+          });
+        }
+      }
+    }
+
+    // 회원가입 정보 로드
+    function loadUserProfile() {
+      try {
+        const userProfile = JSON.parse(localStorage.getItem('userProfile') || 'null');
+        if (userProfile) {
+          // 내 정보 섹션 업데이트
+          document.getElementById('userName').textContent = userProfile.name || '사용자';
+          document.getElementById('userDept').textContent = '한국성서대'; // 고정값
+          document.getElementById('userStudentId').textContent = userProfile.studentId || '2022';
+          document.getElementById('userStatus').textContent = userProfile.status || '재학생';
+          
+          // 계정 섹션 업데이트
+          document.getElementById('accountName').textContent = userProfile.name || '사용자';
+          document.getElementById('accountStudentId').textContent = userProfile.studentId ? `${userProfile.studentId}학번` : '2022학번';
+          document.getElementById('accountBirthday').textContent = userProfile.birthday || '1999-01-01';
+          document.getElementById('accountGender').textContent = userProfile.gender || '남자';
+          document.getElementById('accountStatus').textContent = userProfile.status || '재학생';
+          document.getElementById('accountEmail').textContent = userProfile.email || 'user@bible.ac.kr';
+        } else {
+          // 사용자 프로필이 없는 경우에도 한국성서대는 고정 표시
+          document.getElementById('userDept').textContent = '한국성서대';
+        }
+      } catch (e) {
+        console.error('사용자 프로필 로드 실패:', e);
+        // 오류 발생 시에도 한국성서대는 고정 표시
+        document.getElementById('userDept').textContent = '한국성서대';
+      }
+    }
+
+    // 회원가입 정보 저장 (회원가입 페이지에서 호출될 함수)
+    function saveUserProfile(profileData) {
+      try {
+        localStorage.setItem('userProfile', JSON.stringify(profileData));
+        loadUserProfile(); // UI 업데이트
+        console.log('사용자 프로필 저장 완료:', profileData);
+      } catch (e) {
+        console.error('사용자 프로필 저장 실패:', e);
+      }
+    }
+
+    // 비밀번호 변경 함수
+    function changePassword() {
+      const currentPassword = document.getElementById('currentPassword').value;
+      const newPassword = document.getElementById('newPassword').value;
+      const confirmPassword = document.getElementById('confirmPassword').value;
+      
+      // 입력값 검증
+      if (!currentPassword || !newPassword || !confirmPassword) {
+        alert('모든 필드를 입력해주세요.');
+        return;
+      }
+      
+      // 새 비밀번호 확인
+      if (newPassword !== confirmPassword) {
+        alert('새 비밀번호가 일치하지 않습니다.');
+        return;
+      }
+      
+      // 비밀번호 강도 검증 (8자 이상, 영문/숫자 조합)
+      const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&]{8,}$/;
+      if (!passwordRegex.test(newPassword)) {
+        alert('비밀번호는 8자 이상, 영문과 숫자를 포함해야 합니다.');
+        return;
+      }
+      
+      try {
+        // 현재 사용자 프로필 가져오기
+        const userProfile = JSON.parse(localStorage.getItem('userProfile') || 'null');
+        
+        if (!userProfile) {
+          alert('사용자 정보를 찾을 수 없습니다.');
+          return;
+        }
+        
+        // 현재 비밀번호 확인
+        if (userProfile.password !== currentPassword) {
+          alert('현재 비밀번호가 올바르지 않습니다.');
+          return;
+        }
+        
+        // 새 비밀번호로 업데이트
+        userProfile.password = newPassword;
+        localStorage.setItem('userProfile', JSON.stringify(userProfile));
+        
+        // 입력 필드 초기화
+        document.getElementById('currentPassword').value = '';
+        document.getElementById('newPassword').value = '';
+        document.getElementById('confirmPassword').value = '';
+        
+        // 모달 닫기
+        closeModal('accountModal');
+        
+        alert('비밀번호가 성공적으로 변경되었습니다.');
+        
+      } catch (error) {
+        console.error('비밀번호 변경 실패:', error);
+        alert('비밀번호 변경 중 오류가 발생했습니다.');
+      }
+    }
+
+    // 내 활동 데이터 관리
+    function getMyActivity() {
+      try {
+        const currentUser = localStorage.getItem('currentUser');
+        if (!currentUser) return { posts: [], comments: [], likes: [], commentLikes: [] };
+        
+        const activity = JSON.parse(localStorage.getItem(`activity_${currentUser}`) || '{"posts":[],"comments":[],"likes":[],"commentLikes":[]}');
+        return activity;
+      } catch (e) {
+        console.error('활동 데이터 로드 실패:', e);
+        return { posts: [], comments: [], likes: [], commentLikes: [] };
+      }
+    }
+
+    function saveMyActivity(activity) {
+      try {
+        const currentUser = localStorage.getItem('currentUser');
+        if (!currentUser) return;
+        
+        localStorage.setItem(`activity_${currentUser}`, JSON.stringify(activity));
+      } catch (e) {
+        console.error('활동 데이터 저장 실패:', e);
+      }
+    }
+
+    // 게시글 작성 시 호출할 함수 (게시판에서 사용)
+    function addMyPost(postData) {
+      const activity = getMyActivity();
+      const post = {
+        id: Date.now(),
+        title: postData.title,
+        content: postData.content,
+        category: postData.category || '일반',
+        date: new Date().toISOString(),
+        likes: 0
+      };
+      activity.posts.unshift(post);
+      saveMyActivity(activity);
+      loadMyActivity();
+    }
+
+    // 댓글 작성 시 호출할 함수 (게시판에서 사용)
+    function addMyComment(commentData) {
+      const activity = getMyActivity();
+      const comment = {
+        id: Date.now(),
+        content: commentData.content,
+        postTitle: commentData.postTitle,
+        postId: commentData.postId,
+        date: new Date().toISOString()
+      };
+      activity.comments.unshift(comment);
+      saveMyActivity(activity);
+      loadMyActivity();
+    }
+
+    // 좋아요 추가/제거 시 호출할 함수 (게시판에서 사용)
+    function toggleMyLike(postData) {
+      const activity = getMyActivity();
+      const existingIndex = activity.likes.findIndex(like => like.postId === postData.id);
+      
+      if (existingIndex >= 0) {
+        // 좋아요 제거
+        activity.likes.splice(existingIndex, 1);
+      } else {
+        // 좋아요 추가
+        const like = {
+          id: Date.now(),
+          postId: postData.id,
+          postTitle: postData.title,
+          postAuthor: postData.author,
+          date: new Date().toISOString()
+        };
+        activity.likes.unshift(like);
+      }
+      saveMyActivity(activity);
+      loadMyActivity();
+    }
+
+    // 댓글 좋아요 추가/제거 시 호출할 함수 (게시판에서 사용)
+    function toggleMyCommentLike(commentData) {
+      const activity = getMyActivity();
+      const existingIndex = activity.commentLikes.findIndex(like => like.commentId === commentData.id);
+      
+      if (existingIndex >= 0) {
+        // 좋아요 제거
+        activity.commentLikes.splice(existingIndex, 1);
+      } else {
+        // 좋아요 추가
+        const like = {
+          id: Date.now(),
+          commentId: commentData.id,
+          commentContent: commentData.content,
+          commentAuthor: commentData.author,
+          postId: commentData.postId,
+          date: new Date().toISOString()
+        };
+        activity.commentLikes.unshift(like);
+      }
+      saveMyActivity(activity);
+      loadMyActivity();
+    }
+
+    // 내 활동 정보 로드 및 UI 업데이트
+    function loadMyActivity() {
+      const activity = getMyActivity();
+      
+      // 카운트 업데이트
+      document.getElementById('myPostsCount').textContent = activity.posts.length;
+      document.getElementById('myCommentsCount').textContent = activity.comments.length;
+      document.getElementById('myLikesCount').textContent = activity.likes.length;
+      document.getElementById('myCommentLikesCount').textContent = activity.commentLikes.length;
+      
+      // 최근 활동 업데이트
+      if (activity.posts.length > 0) {
+        const recentPost = activity.posts[0];
+        document.getElementById('myPostsRecent').textContent = `최근: "${recentPost.title}"`;
+      } else {
+        document.getElementById('myPostsRecent').textContent = '작성한 글이 없습니다.';
+      }
+      
+      if (activity.comments.length > 0) {
+        const recentComment = activity.comments[0];
+        const shortContent = recentComment.content.length > 20 ? 
+          recentComment.content.substring(0, 20) + '...' : recentComment.content;
+        document.getElementById('myCommentsRecent').textContent = `최근: "${shortContent}"`;
+      } else {
+        document.getElementById('myCommentsRecent').textContent = '작성한 댓글이 없습니다.';
+      }
+      
+      if (activity.likes.length > 0) {
+        const recentLike = activity.likes[0];
+        document.getElementById('myLikesRecent').textContent = `최근: "${recentLike.postTitle}"`;
+      } else {
+        document.getElementById('myLikesRecent').textContent = '좋아요한 글이 없습니다.';
+      }
+      
+      if (activity.commentLikes.length > 0) {
+        const recentCommentLike = activity.commentLikes[0];
+        const shortContent = recentCommentLike.commentContent.length > 20 ? 
+          recentCommentLike.commentContent.substring(0, 20) + '...' : recentCommentLike.commentContent;
+        document.getElementById('myCommentLikesRecent').textContent = `최근: "${shortContent}"`;
+      } else {
+        document.getElementById('myCommentLikesRecent').textContent = '좋아요한 댓글이 없습니다.';
+      }
+    }
+
+    // 활동 탭 전환
+    function showActivityTab(tabName) {
+      // 모든 탭 비활성화
+      document.querySelectorAll('.activity-tab').forEach(tab => tab.classList.remove('active'));
+      document.querySelectorAll('.activity-tab-content').forEach(content => content.classList.remove('active'));
+      
+      // 선택된 탭 활성화
+      event.target.classList.add('active');
+      document.getElementById(tabName + 'Tab').classList.add('active');
+      
+      // 해당 탭 내용 로드
+      loadActivityTabContent(tabName);
+    }
+
+    // 활동 탭 내용 로드
+    function loadActivityTabContent(tabName) {
+      const activity = getMyActivity();
+      let listElement, items, emptyMessage;
+      
+      switch(tabName) {
+        case 'posts':
+          listElement = document.getElementById('myPostsList');
+          items = activity.posts;
+          emptyMessage = '작성한 글이 없습니다.';
+          break;
+        case 'comments':
+          listElement = document.getElementById('myCommentsList');
+          items = activity.comments;
+          emptyMessage = '작성한 댓글이 없습니다.';
+          break;
+        case 'likes':
+          listElement = document.getElementById('myLikesList');
+          items = activity.likes;
+          emptyMessage = '좋아요한 글이 없습니다.';
+          break;
+        case 'commentLikes':
+          listElement = document.getElementById('myCommentLikesList');
+          items = activity.commentLikes;
+          emptyMessage = '좋아요한 댓글이 없습니다.';
+          break;
+      }
+      
+      if (items.length === 0) {
+        listElement.innerHTML = `<div class="activity-item-empty">${emptyMessage}</div>`;
+        return;
+      }
+      
+      let html = '';
+      items.forEach(item => {
+        const date = new Date(item.date).toLocaleDateString('ko-KR');
+        
+        if (tabName === 'posts') {
+          html += `
+            <div class="activity-item activity-item-clickable" onclick="navigateToPost('${item.id}', 'mypost')">
+              <div class="activity-item-title">${item.title}</div>
+              <div class="activity-item-content">${item.content.substring(0, 100)}${item.content.length > 100 ? '...' : ''}</div>
+              <div class="activity-item-meta">${item.category} · ${date} · 좋아요 ${item.likes}</div>
+              <div class="activity-item-arrow">→</div>
+            </div>
+          `;
+        } else if (tabName === 'comments') {
+          html += `
+            <div class="activity-item activity-item-clickable" onclick="navigateToPost('${item.postId}', 'comment', '${item.id}')">
+              <div class="activity-item-title">댓글: ${item.postTitle}</div>
+              <div class="activity-item-content">${item.content}</div>
+              <div class="activity-item-meta">${date}</div>
+              <div class="activity-item-arrow">→</div>
+            </div>
+          `;
+        } else if (tabName === 'likes') {
+          html += `
+            <div class="activity-item activity-item-clickable" onclick="navigateToPost('${item.postId}', 'like')">
+              <div class="activity-item-title">${item.postTitle}</div>
+              <div class="activity-item-content">작성자: ${item.postAuthor}</div>
+              <div class="activity-item-meta">${date}</div>
+              <div class="activity-item-arrow">→</div>
+            </div>
+          `;
+        } else if (tabName === 'commentLikes') {
+          html += `
+            <div class="activity-item activity-item-clickable" onclick="navigateToPost('${item.postId}', 'commentLike', '${item.commentId}')">
+              <div class="activity-item-title">댓글 좋아요: ${item.commentContent}</div>
+              <div class="activity-item-content">작성자: ${item.commentAuthor}</div>
+              <div class="activity-item-meta">${date}</div>
+              <div class="activity-item-arrow">→</div>
+            </div>
+          `;
+        }
+      });
+      
+      listElement.innerHTML = html;
+    }
+
+    // 모달 열기 시 활동 탭 내용 로드
+    function openModal(modalId) {
+      document.getElementById(modalId).style.display = 'flex';
+      
+      if (modalId === 'profileModal') {
+        const anonProfile = JSON.parse(localStorage.getItem('anonProfile') || 'null');
+        if (anonProfile) {
+          document.getElementById('editAnonNickname').value = anonProfile.nickname || '';
+          document.getElementById('editAnonYear').value = anonProfile.year || '';
+          document.getElementById('editAnonBio').value = anonProfile.bio || '';
+          
+          // 성별 선택 복원
+          const genderBtns = document.querySelectorAll('.gender-btn');
+          genderBtns.forEach(btn => btn.classList.remove('active'));
+          const selectedGenderBtn = document.querySelector(`[data-gender="${anonProfile.gender}"]`);
+          if (selectedGenderBtn) selectedGenderBtn.classList.add('active');
+          
+          // 관심사 선택 복원
+          const interestChips = document.querySelectorAll('.interest-chip');
+          interestChips.forEach(chip => chip.classList.remove('selected'));
+          if (anonProfile.interests) {
+            anonProfile.interests.forEach(interest => {
+              const chip = document.querySelector(`[data-value="${interest}"]`);
+              if (chip) chip.classList.add('selected');
+            });
+          }
+        }
+      } else if (modalId === 'activityModal') {
+        // 첫 번째 탭(내 글) 내용 로드
+        loadActivityTabContent('posts');
+      }
+    }
+
+    // 게시판으로 이동하는 함수
+    function navigateToPost(postId, type, commentId = null) {
+      // URL 파라미터 생성
+      const params = new URLSearchParams();
+      params.set('postId', postId);
+      params.set('source', 'mypage');
+      params.set('type', type);
+      
+      if (commentId) {
+        params.set('commentId', commentId);
+      }
+      
+      // 게시판 페이지로 이동
+      const boardUrl = `boards.html?${params.toString()}`;
+      
+      // 새 탭에서 열기 (선택사항)
+      // window.open(boardUrl, '_blank');
+      
+      // 같은 탭에서 이동
+      window.location.href = '/boards';
+      
+      console.log(`게시판으로 이동: ${boardUrl}`);
+    }
+
+    // 게시판에서 사용할 수 있는 URL 파라미터 파싱 함수
+    function getUrlParams() {
+      const params = new URLSearchParams(window.location.search);
+      return {
+        postId: params.get('postId'),
+        source: params.get('source'),
+        type: params.get('type'),
+        commentId: params.get('commentId')
+      };
+    }
+
+    // 페이지 로드 시 정보 표시
+    document.addEventListener('DOMContentLoaded', function() {
+      // 년도 설정
+      document.getElementById('year').textContent = new Date().getFullYear();
+      
+      loadAnonProfile();
+      loadUserProfile();
+      loadMyActivity();
+    });
+
+    // 로그아웃 (로그인 체크 제거로 인해 단순히 데이터 초기화만 수행)
+    function handleLogout() {
+      if (confirm('데이터를 초기화하시겠습니까?')) {
+        localStorage.removeItem('isLoggedIn');
+        localStorage.removeItem('currentUser');
+        localStorage.removeItem('anonProfile');
+        localStorage.removeItem('userProfile');
+        alert('데이터가 초기화되었습니다.');
+        window.location.href = '/';
+      }
+    }
+  </script>
+  <script src="{{ url_for("static", filename="js/navigation.js") }}"></script>
+</body>
+</html>

@@ -1,0 +1,213 @@
+/**
+ * KBU Hub 전역 네비게이션 스타일 시스템
+ * CSS Cascade Layers를 사용한 완전한 스타일 통제
+ */
+
+@layer reset, base, components, overrides;
+
+@layer base {
+  :root {
+    --nav-font-family: ui-sans-serif, system-ui, -apple-system, "Pretendard", "Noto Sans KR",
+                       "Segoe UI", Roboto, "Helvetica Neue", Arial, "Apple SD Gothic Neo",
+                       "Malgun Gothic", sans-serif;
+    --nav-font-size: 15px;
+    --nav-font-weight: 600;
+    --nav-letter-spacing: -0.01em;
+    --nav-line-height: 1.2;
+    --nav-pad-x: 16px;
+    --nav-pad-y: 10px;
+    --nav-radius: 9999px;
+    --nav-gap: 12px;
+    --nav-active-bg: #FF9F7C;
+    --nav-active-fg: #FFFFFF;
+    --nav-inactive-fg: #1F2937;
+    --nav-border: rgba(255,159,124,.35);
+    --nav-hover-opacity: .92;
+  }
+}
+
+@layer components {
+  .nav-wrap,
+  .nav-pill {
+    display: flex;
+    gap: var(--nav-gap);
+    padding: 6px;
+    border: 1px solid var(--nav-border);
+    border-radius: var(--nav-radius);
+    background: linear-gradient(180deg, rgba(255,255,255,.8), rgba(255,255,255,.6));
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  .nav-item {
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    text-decoration: none;
+    font-family: var(--nav-font-family);
+    font-size: var(--nav-font-size);
+    font-weight: var(--nav-font-weight);
+    letter-spacing: var(--nav-letter-spacing);
+    line-height: var(--nav-line-height);
+    padding: var(--nav-pad-y) var(--nav-pad-x);
+    border-radius: var(--nav-radius);
+    color: var(--nav-inactive-fg);
+    transition: background-color .15s ease, color .15s ease, opacity .15s ease;
+    /* 모든 페이지에서 동일 높이가 되도록 최소 높이 고정 */
+    min-height: calc((var(--nav-line-height) * var(--nav-font-size)) + (var(--nav-pad-y) * 2));
+    position: relative;
+    z-index: 1;
+  }
+
+  .nav-item:is(:hover, :focus-visible) {
+    opacity: var(--nav-hover-opacity);
+    outline: none;
+  }
+
+  .nav-item.is-active,
+  .nav-item.active {
+    background: var(--nav-active-bg);
+    color: var(--nav-active-fg);
+  }
+
+  /* 모바일 네비게이션 스타일 */
+  #mobileNav .py-2 {
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    text-decoration: none;
+    font-family: var(--nav-font-family);
+    font-size: var(--nav-font-size);
+    font-weight: var(--nav-font-weight);
+    letter-spacing: var(--nav-letter-spacing);
+    line-height: var(--nav-line-height);
+    padding: var(--nav-pad-y) var(--nav-pad-x);
+    border-radius: var(--nav-radius);
+    color: var(--nav-inactive-fg);
+    transition: background-color .15s ease, color .15s ease, opacity .15s ease;
+    min-height: calc((var(--nav-line-height) * var(--nav-font-size)) + (var(--nav-pad-y) * 2));
+  }
+
+  #mobileNav .py-2:is(:hover, :focus-visible) {
+    opacity: var(--nav-hover-opacity);
+    outline: none;
+  }
+
+  #mobileNav .py-2.active {
+    background: var(--nav-active-bg);
+    color: var(--nav-active-fg);
+  }
+
+  /* 헤더 크기 통일 및 흔들림 방지 */
+  header {
+    height: 80px !important;
+    min-height: 80px !important;
+    max-height: 80px !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 9999 !important;
+    transform: translateZ(0) !important;
+    backface-visibility: hidden !important;
+    will-change: auto !important;
+  }
+
+  header > div:first-child {
+    height: 100% !important;
+    min-height: 100% !important;
+    transform: translateZ(0) !important;
+  }
+
+  /* 반응형 네비게이션 - 모바일에서 최적화 */
+  @media (max-width: 640px) {
+    .nav-wrap,
+    .nav-pill {
+      gap: 8px;
+      padding: 4px;
+    }
+
+    .nav-item {
+      font-size: 14px !important;
+      padding: 8px 12px !important;
+    }
+
+    #mobileNav .py-2 {
+      font-size: 14px !important;
+      padding: 8px 12px !important;
+    }
+  }
+
+  /* 포커스 접근성 */
+  .nav-item:focus-visible,
+  #mobileNav .py-2:focus-visible {
+    outline: 2px solid #FF9F7C;
+    outline-offset: 2px;
+  }
+
+  /* 메뉴 버튼 스타일 */
+  #menuBtn {
+    transition: all 0.2s ease;
+  }
+
+  #menuBtn:hover {
+    background-color: rgba(255, 159, 128, 0.1);
+  }
+
+  #menuBtn:focus-visible {
+    outline: 2px solid #FF9F7C;
+    outline-offset: 2px;
+  }
+}
+
+@layer overrides {
+  /* 페이지 전용 CSS가 크기/폰트/패딩을 덮어쓸 경우 최종 봉쇄 */
+  .nav-item,
+  #mobileNav .py-2 {
+    font-family: var(--nav-font-family) !important;
+    font-size: var(--nav-font-size) !important;
+    font-weight: var(--nav-font-weight) !important;
+    letter-spacing: var(--nav-letter-spacing) !important;
+    line-height: var(--nav-line-height) !important;
+    padding: var(--nav-pad-y) var(--nav-pad-x) !important;
+    border-radius: var(--nav-radius) !important;
+    min-height: calc((var(--nav-line-height) * var(--nav-font-size)) + (var(--nav-pad-y) * 2)) !important;
+    box-sizing: border-box !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    white-space: nowrap !important;
+    text-decoration: none !important;
+    transition: background-color .15s ease, color .15s ease, opacity .15s ease !important;
+  }
+
+  /* 활성/비활성 색만 허용하고 크기는 변하지 않게 고정 */
+  .nav-item.is-active,
+  .nav-item.active,
+  #mobileNav .py-2.active {
+    background: var(--nav-active-bg) !important;
+    color: var(--nav-active-fg) !important;
+  }
+
+  .nav-item:is(:hover, :focus-visible),
+  #mobileNav .py-2:is(:hover, :focus-visible) {
+    opacity: var(--nav-hover-opacity) !important;
+    outline: none !important;
+  }
+
+  /* 모바일 반응형 오버라이드 */
+  @media (max-width: 640px) {
+    .nav-item,
+    #mobileNav .py-2 {
+      font-size: 14px !important;
+      padding: 8px 12px !important;
+    }
+  }
+}
+
+

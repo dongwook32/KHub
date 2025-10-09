@@ -1,0 +1,2820 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KBU hub | 채팅</title>
+  <link rel="icon" href="{{ url_for("static", filename="images/logo.png") }}">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+   <link rel="stylesheet" href="{{ url_for("static", filename="css/nav.css") }}">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: { peach: '#FFC8B2', peachDeep: '#FF9F80', cream: '#FFF7F2', cocoa:'#6B7280', ink:'#1F2937', mint:'#B7F4E6', lemon:'#FFF3A3' },
+          boxShadow: { soft:'0 10px 30px rgba(255,159,128,.18)', glow:'0 0 0 0 rgba(255,159,128,.0)', card:'0 10px 24px rgba(17,24,39,.08)' },
+          borderRadius: { bubble:'999px', xl2:'1.25rem' }
+        }
+      }
+    }
+  </script>
+  <style>
+    html, body { font-family: Pretendard, system-ui, -apple-system, Segoe UI, Roboto, 'Noto Sans KR', sans-serif; }
+    .top-grad{ background: radial-gradient(60% 60% at 0% 0%, #FFF0E7 0%, rgba(255,240,231,0) 60%), radial-gradient(60% 60% at 100% 0%, #FFE7DB 0%, rgba(255,231,219,0) 60%); }
+    .glass{ background: rgba(255,255,255,.7); backdrop-filter: blur(10px); }
+     /* 네비게이션 스타일은 nav.css (CSS Cascade Layers)에서 관리 */
+    
+    /* 헤더 스타일은 nav.css에서 관리 */
+    
+    /* 반응형 네비게이션 스타일은 nav.css에서 관리 */
+    
+    /* 채팅 레이아웃 */
+    .chat-layout { 
+        display: grid; 
+        grid-template-columns: 280px 1fr; 
+        gap: 24px; 
+        padding: 24px; 
+        max-width: 1200px; 
+        margin: 0 auto;
+        min-height: calc(100vh - 160px);
+        align-items: start;
+    }
+    
+    /* 사이드바 컬럼 */
+    .sidebar-column {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        height: fit-content;
+        overflow-y: visible;
+        position: sticky;
+        top: 100px;
+        align-self: flex-start;
+    }
+    
+    /* 사이드바 카드 공통 스타일 */
+    .sidebar-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 10px 24px rgba(17, 24, 39, 0.08);
+        overflow: hidden;
+        transition: all 0.3s ease;
+        height: fit-content;
+    }
+    
+    .sidebar-card:hover {
+        box-shadow: 0 20px 40px rgba(17, 24, 39, 0.12);
+        transform: translateY(-2px);
+    }
+    
+    .sidebar-card-header {
+        padding: 20px 20px 12px;
+        border-bottom: 1px solid rgba(255, 159, 124, 0.1);
+    }
+    
+    .sidebar-card-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: #1F2937;
+        margin: 0;
+    }
+    
+    .sidebar-card-body {
+        padding: 16px 20px 20px;
+    }
+    
+    /* 반응형 채팅 레이아웃 */
+    @media (max-width: 1024px) {
+        .chat-layout {
+            grid-template-columns: 280px 1fr;
+            gap: 16px;
+            padding: 20px;
+        }
+    }
+    
+    @media (max-width: 768px) {
+        .chat-layout {
+            grid-template-columns: 1fr;
+            gap: 16px;
+            padding: 16px;
+            margin-top: 70px;
+        }
+        
+        .sidebar-panel {
+            position: relative;
+            top: 0;
+            max-height: 300px;
+            margin-bottom: 20px;
+        }
+    }
+    
+    @media (max-width: 640px) {
+        .chat-layout {
+            padding: 12px;
+            margin-top: 65px;
+        }
+    }
+    
+    .panel { 
+        background: #fff; 
+        border-radius: 16px; 
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08); 
+        border: 1px solid rgba(255, 200, 178, 0.2);
+        overflow: hidden;
+    }
+    
+    .sidebar-panel {
+        height: fit-content;
+        max-height: calc(100vh - 330px);
+        position: sticky;
+        top: 100px;
+        overflow-y: auto;
+        z-index: 10;
+    }
+    
+    .main-panel {
+        height: fit-content;
+        min-height: 500px;
+    }
+    
+    .panel-header { 
+        padding: 16px 20px; 
+        border-bottom: 1px solid #f0f0f0; 
+        font-weight: 700; 
+        background: linear-gradient(135deg, #FFF7F2, #ffffff);
+        font-size: 16px;
+    }
+    
+    .header-content {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+        position: relative;
+    }
+    
+    .header-left {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+    }
+    
+    .header-right {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .participant-count-header {
+        font-size: 12px;
+        color: #6B7280;
+        font-weight: 400;
+    }
+    
+    .panel-body { 
+        padding: 16px 20px; 
+    }
+    
+    .sidebar-body {
+        padding: 16px 20px;
+        max-height: calc(100vh - 350px);
+        overflow-y: auto;
+    }
+    
+    /* 사이드바 스타일 */
+    .sidebar-section {
+        margin-bottom: 24px;
+    }
+    
+    .sidebar-section:last-child {
+        margin-bottom: 0;
+    }
+    
+    .sidebar-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: #6B7280;
+        margin-bottom: 8px;
+        padding: 0 4px;
+    }
+    
+    .room-list { 
+        list-style: none; 
+        margin: 0; 
+        padding: 0; 
+    }
+    
+    .room-list li { 
+        padding: 12px 16px; 
+        border-radius: 12px; 
+        cursor: pointer; 
+        margin-bottom: 4px;
+        transition: all 0.3s ease;
+        font-size: 14px;
+        color: #374151;
+    }
+    
+    .room-list li:hover { 
+        background: #FFF0E5; 
+        transform: translateX(4px);
+    }
+    
+    .room-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+    }
+    
+    .room-name {
+        font-weight: 600;
+        color: #333;
+    }
+    
+    .participant-count {
+        font-size: 12px;
+        color: #FF8C42;
+        background: #FFE4D1;
+        padding: 4px 10px;
+        border-radius: 16px;
+        font-weight: 600;
+        margin-left: auto;
+    }
+    
+    .room-name-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .unread-badge {
+        background: #dc2626;
+        color: white;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 2px 6px;
+        border-radius: 10px;
+        min-width: 18px;
+        text-align: center;
+        line-height: 1.2;
+    }
+    
+    .room-list li.active { 
+        background: linear-gradient(135deg, #FF9F80, #FFC8B2);
+        color: white;
+        box-shadow: 0 4px 12px rgba(255, 159, 128, 0.3);
+    }
+    
+    /* 프로필 카드 */
+    .profile-card {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 20px;
+        background: linear-gradient(135deg, #FFF7F2, #ffffff);
+        border-radius: 16px;
+        margin-bottom: 20px;
+        border: 1px solid rgba(255, 200, 178, 0.3);
+    }
+    
+    .profile-avatar {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #FF9F80, #FFC8B2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        color: white;
+        box-shadow: 0 4px 12px rgba(255, 159, 128, 0.3);
+    }
+    
+    .profile-info {
+        flex: 1;
+    }
+    
+    .profile-name {
+        font-weight: 700;
+        font-size: 18px;
+        color: #1F2937;
+        margin-bottom: 4px;
+    }
+    
+    .profile-details {
+        font-size: 14px;
+        color: #6B7280;
+        margin-bottom: 2px;
+    }
+    
+    .profile-bio {
+        font-size: 13px;
+        color: #9CA3AF;
+        margin-top: 8px;
+        line-height: 1.4;
+    }
+    
+    .profile-actions {
+        display: flex;
+        gap: 8px;
+    }
+    
+    .btn-edit {
+        padding: 8px 12px;
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        font-size: 12px;
+        color: #6c757d;
+        text-decoration: none;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-edit:hover {
+        background: #e9ecef;
+        border-color: #FF9F80;
+        color: #495057;
+    }
+    
+    /* 매칭 섹션 */
+    .matching-grid {
+            display: grid; 
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .matching-card {
+            background: #fff; 
+        border: 1px solid #f0f0f0;
+        border-radius: 16px;
+        padding: 32px 24px;
+        text-align: center;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .matching-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, rgba(255, 159, 128, 0.02) 0%, rgba(255, 200, 178, 0.05) 100%);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+    
+    .matching-card:hover::before {
+        opacity: 1;
+    }
+    
+    .matching-card:hover {
+        border-color: #FF9F80;
+        box-shadow: 0 8px 24px rgba(255, 159, 128, 0.15);
+        transform: translateY(-4px);
+    }
+    
+    .matching-icon {
+        width: 48px;
+        height: 48px;
+        margin: 0 auto 16px;
+        background: linear-gradient(135deg, #FF9F80, #FFC8B2);
+            border-radius: 12px; 
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        color: white;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .matching-title {
+            font-weight: 700; 
+        font-size: 18px;
+        margin-bottom: 8px;
+        color: #1F2937;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .matching-desc {
+        font-size: 14px;
+        color: #6B7280;
+        margin-bottom: 24px;
+        line-height: 1.5;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .btn {
+        padding: 14px 24px;
+        border: none;
+        border-radius: 12px;
+            cursor: pointer; 
+        font-weight: 600;
+        font-size: 14px;
+            transition: all 0.3s ease;
+        width: 100%;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .btn-primary {
+        background: linear-gradient(135deg, #FF9F80, #FFC8B2);
+        color: white;
+        box-shadow: 0 4px 12px rgba(255, 159, 128, 0.3);
+    }
+    
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(255, 159, 128, 0.4);
+        background: linear-gradient(135deg, #FF8A6B, #FFB89D);
+    }
+    
+    .btn-secondary {
+        background: #f8f9fa;
+        color: #6c757d;
+        border: 1px solid #dee2e6;
+    }
+    
+    .btn-secondary:hover {
+        background: #e9ecef;
+        border-color: #adb5bd;
+    }
+    
+    /* 매칭 상태 */
+    .matching-status {
+        text-align: center;
+        padding: 16px;
+        display: none;
+    }
+    
+    .matching-spinner {
+        width: 24px;
+        height: 24px;
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #FF9F80;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 12px;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    .matching-text {
+        font-weight: 600;
+        color: #FF9F80;
+        margin-bottom: 8px;
+    }
+    
+    .matching-timer {
+        font-size: 14px;
+        color: #6B7280;
+        margin-bottom: 12px;
+    }
+    
+    /* 채팅 화면 */
+        .messages { 
+        height: 400px; 
+        overflow-y: auto; 
+            display: flex; 
+            flex-direction: column; 
+        gap: 12px;
+        padding: 16px;
+        background: #fafafa;
+        border-radius: 12px;
+        margin-bottom: 16px;
+        align-items: flex-start;
+    }
+    
+        .msg { 
+            max-width: 70%; 
+        padding: 12px 16px; 
+        border-radius: 16px; 
+        background: #fff; 
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        font-size: 14px;
+        line-height: 1.4;
+        position: relative;
+        display: inline-block;
+        word-wrap: break-word;
+    }
+    
+        .msg.me { 
+            align-self: flex-end; 
+        background: linear-gradient(135deg, #FF9F80, #FFC8B2); 
+            color: #fff; 
+        }
+        
+        .msg-wrapper {
+            display: flex;
+        width: 100%;
+            margin-bottom: 8px;
+        }
+        
+        .msg-wrapper.me {
+            justify-content: flex-end;
+        }
+    
+    .msg-content {
+        margin-bottom: 4px;
+    }
+    
+    .msg-time {
+        font-size: 11px;
+        opacity: 0.7;
+        text-align: right;
+        margin-top: 4px;
+    }
+    
+    .msg-nickname {
+        font-size: 12px;
+        color: #FF9F80;
+        font-weight: 600;
+        margin-bottom: 4px;
+        display: block;
+    }
+    
+    .msg.me .msg-nickname {
+        display: none;
+    }
+    
+    .msg.me .msg-time {
+        color: rgba(255, 255, 255, 0.8);
+    }
+    
+    .msg:not(.me) .msg-time {
+        color: #999;
+    }
+    
+        .composer { 
+            display: flex; 
+        gap: 12px; 
+        padding: 16px;
+        background: #f8f9fa;
+        border-radius: 12px;
+    }
+    
+        .composer input { 
+        flex: 4; 
+        padding: 12px 16px; 
+        border: 1px solid #e9ecef; 
+            border-radius: 10px; 
+        font-size: 14px;
+        background: white;
+        min-width: 0;
+    }
+    
+    .composer .btn {
+        flex: 1;
+        min-width: 80px;
+        white-space: nowrap;
+    }
+    
+    /* 헤더 홈 버튼 */
+    .btn-home {
+        background: linear-gradient(135deg, #FF9F80, #FFC8B2);
+            border: none;
+        color: white;
+        padding: 8px 12px;
+            border-radius: 8px;
+        font-size: 13px;
+            font-weight: 600;
+        cursor: pointer;
+            transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        box-shadow: 0 2px 8px rgba(255, 159, 128, 0.3);
+    }
+    
+    .btn-home:hover {
+        background: linear-gradient(135deg, #FF8A6B, #FFB89D);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(255, 159, 128, 0.4);
+    }
+    
+    .btn-home svg {
+        width: 14px;
+        height: 14px;
+    }
+    
+    /* 채팅 옵션 버튼 */
+    .btn-options {
+        background: transparent;
+            border: none;
+        color: #6B7280;
+        padding: 8px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .btn-options:hover {
+        background: rgba(107, 114, 128, 0.1);
+        color: #374151;
+    }
+    
+    /* 채팅 옵션 드롭다운 */
+    .chat-options-dropdown {
+        position: fixed;
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        min-width: 200px;
+        z-index: 1000;
+        overflow: hidden;
+    }
+    
+    .dropdown-header {
+        padding: 12px 16px;
+        font-size: 14px;
+        font-weight: 600;
+        color: #374151;
+        background: #f9fafb;
+        border-bottom: 1px solid #e5e7eb;
+    }
+    
+    .dropdown-item {
+        padding: 12px 16px;
+        font-size: 14px;
+        color: #374151;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+            gap: 12px;
+        transition: background-color 0.2s ease;
+    }
+    
+    .dropdown-item:hover {
+        background: #f3f4f6;
+    }
+    
+    .dropdown-item.danger {
+        color: #dc2626;
+    }
+    
+    .dropdown-item.danger:hover {
+        background: #fef2f2;
+    }
+    
+    .dropdown-divider {
+        height: 1px;
+        background: #e5e7eb;
+        margin: 4px 0;
+    }
+    
+    /* 모달 스타일 */
+    .modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+            width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 2000;
+    }
+    
+    .modal-content {
+        background: white;
+        border-radius: 16px;
+        width: 90%;
+        max-width: 500px;
+        max-height: 80vh;
+        overflow: hidden;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+    
+    .modal-header {
+        padding: 20px 24px;
+        border-bottom: 1px solid #e5e7eb;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #f9fafb;
+    }
+    
+    .modal-header h3 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 600;
+        color: #374151;
+    }
+    
+    .modal-close {
+        background: none;
+        border: none;
+        font-size: 24px;
+        color: #6B7280;
+        cursor: pointer;
+        padding: 0;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        transition: all 0.2s ease;
+    }
+    
+    .modal-close:hover {
+        background: #e5e7eb;
+        color: #374151;
+    }
+    
+    .modal-body {
+            padding: 24px; 
+        max-height: 60vh;
+        overflow-y: auto;
+    }
+    
+    /* 참여자 목록 스타일 */
+    .participants-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    
+    .participant-item {
+        display: flex;
+        align-items: center;
+        padding: 12px 16px;
+        border: 1px solid #e5e7eb;
+            border-radius: 12px; 
+        cursor: pointer;
+        transition: all 0.2s ease;
+        background: white;
+    }
+    
+    .participant-item:hover {
+        border-color: #FF9F80;
+        background: #FFF7F2;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(255, 159, 128, 0.2);
+    }
+    
+    .participant-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+            background: linear-gradient(135deg, #FF9F80, #FFC8B2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        margin-right: 12px;
+    }
+    
+    .participant-info {
+        flex: 1;
+    }
+    
+    .participant-name {
+        font-weight: 600;
+        color: #374151;
+            margin-bottom: 4px;
+    }
+    
+    .participant-status {
+        font-size: 12px;
+        color: #6B7280;
+    }
+    
+    /* 참여자 프로필 스타일 */
+    .participant-profile {
+        text-align: center;
+    }
+    
+    .profile-avatar-large {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #FF9F80, #FFC8B2);
+            display: flex; 
+        align-items: center;
+        justify-content: center;
+        font-size: 36px;
+        margin: 0 auto 20px;
+    }
+    
+    .profile-details {
+        text-align: left;
+        margin-top: 20px;
+    }
+    
+    .profile-detail-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px solid #f3f4f6;
+    }
+    
+    .profile-detail-label {
+        font-weight: 600;
+        color: #6B7280;
+    }
+    
+    .profile-detail-value {
+        color: #374151;
+    }
+    
+    /* 랜덤 매칭 프로필 섹션 */
+    .random-matching-section {
+        margin: 24px 0;
+    }
+    
+    .section-header {
+        margin-bottom: 16px;
+    }
+    
+    .section-title {
+        font-size: 18px;
+        font-weight: 700;
+        color: #374151;
+            display: flex; 
+        align-items: center;
+            gap: 8px; 
+    }
+    
+    .profile-carousel {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .carousel-btn {
+        background: #f3f4f6;
+        border: none;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        color: #6b7280;
+        flex-shrink: 0;
+    }
+    
+    .carousel-btn:hover {
+        background: #e5e7eb;
+        color: #374151;
+        transform: scale(1.05);
+    }
+    
+    .profile-cards-container {
+        display: flex;
+        gap: 16px;
+        overflow-x: auto;
+        scroll-behavior: smooth;
+        padding: 8px 0;
+            flex: 1; 
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+    
+    .profile-cards-container::-webkit-scrollbar {
+        display: none;
+    }
+    
+    .random-profile-card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        min-width: 200px;
+        max-width: 200px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        border: 1px solid #e5e7eb;
+        text-align: center;
+        transition: all 0.3s ease;
+        flex-shrink: 0;
+    }
+    
+    .random-profile-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    }
+    
+    .random-profile-avatar {
+        width: 60px;
+        height: 60px;
+            border-radius: 50%;
+        background: #f3f4f6;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        font-weight: 600;
+        color: #6b7280;
+        margin: 0 auto 12px;
+    }
+    
+    .random-profile-name {
+        font-size: 16px;
+        font-weight: 700;
+        color: #111827;
+        margin-bottom: 6px;
+    }
+    
+    .random-profile-details {
+        font-size: 12px;
+        color: #6b7280;
+        margin-bottom: 8px;
+    }
+    
+    .random-profile-bio {
+        font-size: 12px;
+        color: #6b7280;
+        margin-bottom: 16px;
+        line-height: 1.4;
+        min-height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .random-profile-btn {
+        background: linear-gradient(135deg, #FF9F80, #FFC8B2);
+        color: white;
+        border: none;
+        border-radius: 8px;
+            padding: 8px 16px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        width: 100%;
+        box-shadow: 0 2px 8px rgba(255, 159, 128, 0.3);
+    }
+    
+    .random-profile-btn:hover {
+        background: linear-gradient(135deg, #FF8A6B, #FFB89A);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(255, 159, 128, 0.4);
+    }
+    
+    /* 프로필 상세 모달 */
+    .profile-detail-content {
+        text-align: center;
+    }
+    
+    .profile-detail-avatar {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #FFC8B2, #FF9F80);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 32px;
+        font-weight: 600;
+        color: white;
+        margin: 0 auto 20px;
+        box-shadow: 0 8px 22px rgba(255, 159, 128, 0.35);
+    }
+    
+    .profile-detail-name {
+        font-size: 24px;
+        font-weight: 700;
+        color: #1F2937;
+        margin-bottom: 8px;
+    }
+    
+    .profile-detail-info {
+        font-size: 16px;
+        color: #6B7280;
+        margin-bottom: 16px;
+    }
+    
+    .profile-detail-bio {
+        font-size: 14px;
+        color: #374151;
+        line-height: 1.6;
+        background: #FFF7F2;
+        padding: 16px;
+        border-radius: 12px;
+        margin-bottom: 24px;
+        border: 1px solid rgba(255, 159, 128, 0.2);
+    }
+    
+    .profile-detail-actions {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+    }
+    
+    .profile-detail-btn {
+        padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+            cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .profile-detail-btn.primary {
+        background: linear-gradient(135deg, #FF9F80, #FF8A6B);
+        color: white;
+        box-shadow: 0 4px 12px rgba(255, 159, 128, 0.3);
+    }
+    
+    .profile-detail-btn.primary:hover {
+        background: linear-gradient(135deg, #FF8A6B, #FF7A5B);
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(255, 159, 128, 0.4);
+    }
+    
+    .profile-detail-btn.secondary {
+        background: #FFF7F2;
+        color: #6B7280;
+        border: 1px solid rgba(255, 159, 128, 0.3);
+    }
+    
+    .profile-detail-btn.secondary:hover {
+        background: #FFC8B2;
+        color: #374151;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(255, 159, 128, 0.2);
+    }
+    
+    .profile-detail-interests {
+        margin-bottom: 20px;
+    }
+    
+    .profile-detail-interests-title {
+        font-size: 14px;
+            font-weight: 600;
+        color: #6B7280;
+        margin-bottom: 8px;
+        text-align: center;
+    }
+    
+    .profile-detail-interests-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        justify-content: center;
+    }
+    
+    .profile-detail-interest-tag {
+            background: linear-gradient(135deg, #FF9F80, #FFC8B2);
+            color: white;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 500;
+        box-shadow: 0 2px 6px rgba(255, 159, 128, 0.25);
+    }
+    
+    .composer input:focus {
+        outline: none;
+        border-color: #FF9F80;
+        box-shadow: 0 0 0 3px rgba(255, 159, 128, 0.1);
+    }
+    
+    /* 마이프로필 콘텐츠 스타일 */
+    .my-profile-content {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+    }
+    
+    .my-profile-avatar {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #FF9F7C, #FFC8B2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        color: white;
+        flex-shrink: 0;
+        box-shadow: 0 4px 12px rgba(255, 159, 124, 0.3);
+    }
+    
+    .my-profile-info {
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .my-profile-name {
+        font-size: 14px;
+        font-weight: 600;
+        color: #1F2937;
+        margin-bottom: 4px;
+        line-height: 1.3;
+    }
+    
+    .my-profile-details {
+        font-size: 12px;
+        color: #6B7280;
+        margin-bottom: 6px;
+        line-height: 1.3;
+    }
+    
+    .my-profile-bio {
+        font-size: 12px;
+        color: #6B7280;
+        line-height: 1.4;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    
+    .my-profile-actions {
+        flex-shrink: 0;
+        margin-left: auto;
+    }
+    
+    .my-profile-edit-btn {
+        background: linear-gradient(135deg, #FF9F7C, #FF7B54);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 6px 12px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 8px rgba(255, 159, 124, 0.3);
+    }
+    
+    .my-profile-edit-btn:hover {
+        background: linear-gradient(135deg, #FF7B54, #FF9F7C);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(255, 159, 124, 0.4);
+    }
+
+    /* 반응형 */
+        @media(max-width: 900px){ 
+            .chat-layout{ 
+                grid-template-columns: 1fr; 
+                padding: 16px;
+            } 
+        
+        .matching-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .sidebar-column {
+            gap: 12px;
+            position: static;
+            top: auto;
+        }
+        
+        .sidebar-card-header {
+            padding: 16px 16px 10px;
+        }
+        
+        .sidebar-card-body {
+            padding: 12px 16px 16px;
+        }
+        
+        .my-profile-avatar {
+            width: 40px;
+            height: 40px;
+            font-size: 16px;
+        }
+        
+        .my-profile-name {
+            font-size: 13px;
+        }
+        
+        .my-profile-details,
+        .my-profile-bio {
+            font-size: 11px;
+        }
+        
+        .my-profile-edit-btn {
+            padding: 4px 8px;
+            font-size: 11px;
+        }
+    }
+    
+    /* 통일된 Footer 스타일 */
+    footer {
+        border-top: 1px solid rgba(255, 200, 178, 0.5);
+        margin-top: 0;
+        padding: 0;
+    }
+    
+    footer > div {
+        max-width: 72rem;
+        margin: 0 auto;
+        padding: 1.5rem 1rem;
+        font-size: 0.875rem;
+        line-height: 1.25rem;
+        color: #6B7280;
+        text-align: center;
+        }
+    </style>
+</head>
+<body class="bg-cream">
+  <div class="top-grad h-[160px] w-full absolute inset-0 -z-10 pointer-events-none"></div>
+
+  <header class="fixed top-0 left-0 right-0 z-50 border-b border-peach/40 glass">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-4">
+      <a href="{{ url_for('index') }}" class="flex items-center gap-2 font-extrabold text-lg">
+        <img src="{{ url_for("static", filename="images/logo.png") }}" alt="KBU hub" class="w-9 h-9 rounded-full shadow-[0_8px_18px_rgba(255,159,128,.25)]">
+        <span>hub</span>
+      </a>
+      <nav class="ml-auto hidden md:flex">
+        <div id="navPill" class="nav-pill">
+          <!-- 네비게이션 아이템은 navigation.js에서 동적으로 생성됩니다 -->
+        </div>
+      </nav>
+      <button id="menuBtn" class="md:hidden ml-auto p-2 rounded-full border border-peach/60">☰</button>
+    </div>
+    <div id="mobileNav" class="hidden md:hidden px-4 pb-3 border-t border-peach/40 bg-white/70">
+      <div class="flex flex-col gap-1 py-2 text-sm">
+        <!-- 모바일 네비게이션 아이템은 navigation.js에서 동적으로 생성됩니다 -->
+      </div>
+    </div>
+  </header>
+
+  <main class="chat-layout" style="margin-top: 80px;">
+    <!-- 왼쪽 사이드바 -->
+    <div class="sidebar-column">
+      <!-- 채팅방 목록 카드 -->
+      <div class="sidebar-card">
+        <div class="sidebar-card-header">
+          <h2 class="sidebar-card-title">채팅방 목록</h2>
+        </div>
+        <div class="sidebar-card-body">
+          <div class="sidebar-section">
+            <div class="sidebar-title">1:1</div>
+            <ul class="room-list" id="dmList">
+              <!-- 1:1 채팅방 목록이 여기에 표시됩니다 -->
+            </ul>
+        </div>
+        
+          <div class="sidebar-section">
+            <div class="sidebar-title">그룹</div>
+            <ul class="room-list" id="groupList">
+              <!-- 그룹 채팅방 목록이 여기에 표시됩니다 -->
+            </ul>
+                            </div>
+                            
+          <div class="sidebar-section">
+            <div class="sidebar-title">관심 분야</div>
+            <ul class="room-list" id="interestList">
+              <!-- 관심사 기반 채팅방이 여기에 표시됩니다 -->
+            </ul>
+                                </div>
+                            </div>
+                        </div>
+
+      <!-- 마이프로필 카드 -->
+      <div class="sidebar-card">
+        <div class="sidebar-card-header">
+          <h2 class="sidebar-card-title">마이프로필</h2>
+                                </div>
+        <div class="sidebar-card-body">
+          <div class="my-profile-content">
+            <div class="my-profile-avatar" id="myProfileAvatar">👤</div>
+            <div class="my-profile-info">
+              <div class="my-profile-name" id="myProfileName">익명 프로필</div>
+              <div class="my-profile-details" id="myProfileDetails">23학번 · 남자</div>
+              <div class="my-profile-bio" id="myProfileBio">새로운 친구를 만나고 싶어요!</div>
+                            </div>
+            <div class="my-profile-actions">
+              <button class="my-profile-edit-btn" onclick="window.location.href='/profile-setup'">수정</button>
+                        </div>
+          </div>
+                                </div>
+                            </div>
+                        </div>
+
+    <!-- 오른쪽 메인 영역 -->
+    <section class="panel main-panel">
+      <div class="panel-header">
+        <div class="header-content">
+          <div class="header-left">
+            <span id="chatHeader">랜덤 매칭</span>
+            <span id="participantCount" class="participant-count-header" style="display:none;"></span>
+                                </div>
+          <div class="header-right">
+            <button id="chatOptions" class="btn-options" style="display:none;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="1"/>
+                <circle cx="19" cy="12" r="1"/>
+                <circle cx="5" cy="12" r="1"/>
+              </svg>
+                                </button>
+            <button id="backToHome" class="btn-home" style="display:none;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 12H5M12 19l-7-7 7-7"/>
+              </svg>
+              홈으로
+                                </button>
+                                </div>
+                            </div>
+                        </div>
+
+      <!-- 채팅 옵션 드롭다운 -->
+      <div id="chatOptionsDropdown" class="chat-options-dropdown" style="display:none;">
+        <div class="dropdown-header">채팅 옵션</div>
+        <div class="dropdown-item" onclick="showParticipants()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+          참여자 보기
+                        </div>
+        <div class="dropdown-divider"></div>
+        <div class="dropdown-item danger" onclick="leaveChatRoom()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+            <polyline points="16,17 21,12 16,7"/>
+            <line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+          채팅방 나가기
+                            </div>
+                </div>
+                
+      <!-- 참여자 보기 모달 -->
+      <div id="participantsModal" class="modal" style="display:none;">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3>참여자 목록</h3>
+            <button class="modal-close" onclick="closeParticipantsModal()">&times;</button>
+                                </div>
+          <div class="modal-body">
+            <div id="participantsList" class="participants-list">
+              <!-- 참여자 목록이 여기에 표시됩니다 -->
+                            </div>
+                        </div>
+                            </div>
+            </div>
+        
+      <!-- 참여자 프로필 모달 -->
+      <div id="participantProfileModal" class="modal" style="display:none;">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3>참여자 프로필</h3>
+            <button class="modal-close" onclick="closeParticipantProfileModal()">&times;</button>
+                </div>
+          <div class="modal-body">
+            <div id="participantProfileContent" class="participant-profile">
+              <!-- 참여자 프로필이 여기에 표시됩니다 -->
+                </div>
+          </div>
+                        </div>
+                        </div>
+
+      <!-- 프로필 상세 보기 모달 -->
+      <div id="profileDetailModal" class="modal" style="display:none;">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3>프로필 상세</h3>
+            <button class="modal-close" onclick="closeProfileDetailModal()">&times;</button>
+                                            </div>
+          <div class="modal-body">
+            <div id="profileDetailContent" class="profile-detail-content">
+              <!-- 프로필 상세 정보가 여기에 표시됩니다 -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                                <div class="panel-body">
+        <!-- 기본 화면: 프로필 + 매칭 옵션 -->
+                    <div id="chatContent">
+
+          <!-- 랜덤 매칭 프로필 섹션 -->
+          <div class="random-matching-section">
+            <div class="section-header">
+              <span class="section-title">✨ 랜덤 매칭 프로필</span>
+                                            </div>
+            <div class="profile-carousel">
+              <button class="carousel-btn prev-btn" onclick="scrollProfiles(-1)">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="15,18 9,12 15,6"/>
+                </svg>
+              </button>
+              <div class="profile-cards-container" id="profileCardsContainer">
+                <!-- 프로필 카드들이 여기에 동적으로 생성됩니다 -->
+                                        </div>
+              <button class="carousel-btn next-btn" onclick="scrollProfiles(1)">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="9,18 15,12 9,6"/>
+                </svg>
+              </button>
+                                    </div>
+                                </div>
+
+          <!-- 매칭 옵션 -->
+          <div class="matching-grid">
+            <div class="matching-card">
+              <div class="matching-icon">💬</div>
+              <div class="matching-title">랜덤 1:1 대화</div>
+              <div class="matching-desc">익명으로 한 명과 연결됩니다.</div>
+              <button id="startRandom" class="btn btn-primary">1:1 매칭 시작</button>
+              <div id="randomMatchingStatus" class="matching-status">
+                                                <div class="matching-spinner"></div>
+                <div class="matching-text">매칭 중...</div>
+                <div class="matching-timer" id="randomTimer">00:00:00</div>
+                <button id="cancelRandom" class="btn btn-secondary">매칭 취소</button>
+                                    </div>
+                                        </div>
+            
+            <div class="matching-card">
+              <div class="matching-icon">👥</div>
+              <div class="matching-title">랜덤 그룹 대화</div>
+              <div class="matching-desc">3-6명이 랜덤으로 모여 대화합니다.</div>
+              <button id="startGroup" class="btn btn-primary">그룹 매칭 시작</button>
+              <div id="groupMatchingStatus" class="matching-status">
+                                                <div class="matching-spinner"></div>
+                <div class="matching-text">매칭 중...</div>
+                <div class="matching-timer" id="groupTimer">00:00:00</div>
+                <button id="cancelGroup" class="btn btn-secondary">매칭 취소</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+        <!-- 채팅 화면 -->
+                    <div id="chatRoom" style="display:none;">
+                        <div class="messages" id="messages">
+            <!-- 채팅 메시지들이 여기에 표시됩니다 -->
+                        </div>
+                        <div class="composer">
+                            <input type="text" id="messageInput" placeholder="메시지를 입력하세요...">
+                            <button id="sendButton" class="btn btn-primary">전송</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+    </main>
+
+  <footer>
+    <div>
+      © <span id="year"></span> KBU hub · All rights reserved.
+        </div>
+    </footer>
+
+    <script>
+    // 익명 프로필 로드 (Flask 세션에서 전달받음)
+    function loadAnonProfile() {
+      try {
+        // Flask 템플릿에서 전달된 프로필 데이터
+        const profile = {{ anon_profile | tojson | safe }};
+        
+        if (profile && profile.nickname) {
+          // 마이프로필 카드 업데이트
+          document.getElementById('myProfileName').textContent = profile.nickname || '익명의친구';
+          document.getElementById('myProfileDetails').textContent = `${profile.year} · ${profile.gender}`;
+          document.getElementById('myProfileBio').textContent = profile.bio || '새로운 친구를 만나고 싶어요!';
+          
+          // 관심사 목록 업데이트
+          updateInterestList(profile.interests || []);
+          
+          // 매칭 버튼 활성화
+          document.getElementById('startRandom').textContent = '1:1 매칭 시작';
+          document.getElementById('startGroup').textContent = '그룹 매칭 시작';
+        } else { 
+          // 기본값 설정
+          document.getElementById('myProfileName').textContent = '익명 프로필';
+          document.getElementById('myProfileDetails').textContent = '23학번 · 남자';
+          document.getElementById('myProfileBio').textContent = '새로운 친구를 만나고 싶어요!';
+          
+          // 관심사 목록 업데이트
+          updateInterestList([]);
+          
+          // 매칭 버튼 활성화
+          document.getElementById('startRandom').textContent = '1:1 매칭 시작';
+          document.getElementById('startGroup').textContent = '그룹 매칭 시작';
+        }
+      } catch (e) {
+        console.error('프로필 로드 실패:', e);
+        // 기본값 설정
+        document.getElementById('myProfileName').textContent = '익명 프로필';
+        document.getElementById('myProfileDetails').textContent = '23학번 · 남자';
+        document.getElementById('myProfileBio').textContent = '새로운 친구를 만나고 싶어요!';
+      }
+    }
+
+    // 관심사 목록 업데이트
+    function updateInterestList(interests) {
+      const interestList = document.getElementById('interestList');
+      interestList.innerHTML = '';
+      
+            if (interests.length === 0) {
+        const li = document.createElement('li');
+        li.textContent = '선택한 관심사가 없습니다.';
+        li.style.color = '#999';
+        li.style.cursor = 'default';
+        interestList.appendChild(li);
+                return;
+            }
+            
+      // 관심사별 이모지 매핑
+      const interestEmojis = {
+        '영화': '🎬',
+        '운동': '💪',
+        '게임': '🎮',
+        '음악': '🎵',
+        '카페': '☕',
+        '여행': '✈️',
+        '스터디': '📚',
+        '독서': '📖',
+        '맛집': '🍽️'
+      };
+      
+      interests.forEach(interest => {
+                const li = document.createElement('li');
+        const emoji = interestEmojis[interest] || '🎯';
+        const participantCount = roomParticipants[interest]?.count || 0;
+        
+        // 관심분야 항목 HTML 구조 (채팅방 목록과 동일한 스타일)
+        li.innerHTML = `
+            <div class="room-info">
+                <div class="room-name-wrapper">
+                    <span class="room-name">${emoji} ${interest}</span>
+                </div>
+                <span class="participant-count">${participantCount}명</span>
+            </div>
+        `;
+        
+        li.addEventListener('click', () => {
+            // 관심사 방 입장 시 채팅방 목록에 추가
+            addInterestRoom(interest);
+            enterRoom(interest);
+            
+            // 클릭된 관심분야에 active 클래스 추가 (비주얼 스타일 적용)
+            document.querySelectorAll('#interestList li').forEach(item => {
+                item.classList.remove('active');
+            });
+            li.classList.add('active');
+        });
+                interestList.appendChild(li);
+            });
+    }
+
+    // 관심사 방을 채팅방 목록에 추가
+    function addInterestRoom(interest) {
+        // 이미 존재하는 방인지 확인
+        const existingRoom = chatData.roomList.find(room => room.name === interest);
+        if (!existingRoom) {
+            // 채팅방 데이터에 추가
+            if (!chatData.rooms[interest]) {
+                chatData.rooms[interest] = [];
+            }
+            
+            // 채팅방 목록에 추가
+            chatData.roomList.push({
+                name: interest,
+                type: 'interest',
+                unreadCount: 0,
+                participantCount: roomParticipants[interest]?.count || 0,
+                createdAt: new Date().toISOString()
+            });
+            
+            saveChatData();
+            updateRoomListUI();
+        }
+    }
+
+    // 관심분야 방 참여자 수 증가
+    function incrementParticipantCount(interest) {
+        if (roomParticipants[interest]) {
+            roomParticipants[interest].count += 1;
+            // 채팅방 목록의 참여자 수 업데이트
+            const roomData = chatData.roomList.find(room => room.name === interest);
+            if (roomData) {
+                roomData.participantCount = roomParticipants[interest].count;
+                saveChatData();
+                updateRoomListUI();
+                updateInterestListUI(interest);
+            }
+        }
+    }
+
+    // 관심분야 목록 UI 업데이트
+    function updateInterestListUI(interest) {
+        const interestList = document.getElementById('interestList');
+        const listItems = interestList.querySelectorAll('li');
+        
+        listItems.forEach(li => {
+            const roomNameSpan = li.querySelector('.room-name');
+            if (roomNameSpan && roomNameSpan.textContent.includes(interest)) {
+                const participantCountSpan = li.querySelector('.participant-count');
+                if (participantCountSpan) {
+                    const currentCount = roomParticipants[interest]?.count || 0;
+                    participantCountSpan.textContent = `${currentCount}명`;
+                }
+            }
+        });
+    }
+
+    // 기본 관심분야 방들을 초기화
+    function initializeDefaultInterestRooms() {
+        const defaultInterests = ['운동', '독서']; // 이미지에 보이는 기본 관심분야들
+        
+        defaultInterests.forEach(interest => {
+            addInterestRoom(interest);
+        });
+    }
+
+
+    // 매칭 관련 변수
+        let randomMatching = false;
+        let groupMatching = false;
+        let randomStartTime = null;
+        let groupStartTime = null;
+        let randomTimer = null;
+        let groupTimer = null;
+        
+        // 그룹 매칭 대기열 (전역)
+        let groupMatchingQueue = {
+            male: [], // 남자 대기자 목록
+            female: [], // 여자 대기자 목록
+            groups: [] // 완성된 그룹 목록
+        };
+        
+        // 채팅 데이터 저장소 (전역)
+        let chatData = {
+            rooms: {}, // 채팅방별 메시지 저장
+            roomList: [] // 채팅방 목록
+        };
+
+    // 타이머 포맷팅
+        function formatTime(seconds) {
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = seconds % 60;
+            return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        // 채팅 데이터 저장
+        function saveChatData() {
+            try {
+                localStorage.setItem('chatData', JSON.stringify(chatData));
+            } catch (e) {
+                console.error('채팅 데이터 저장 실패:', e);
+            }
+        }
+
+        // 채팅 데이터 로드
+        function loadChatData() {
+            try {
+                const saved = localStorage.getItem('chatData');
+                if (saved) {
+                    chatData = JSON.parse(saved);
+                }
+            } catch (e) {
+                console.error('채팅 데이터 로드 실패:', e);
+                chatData = { rooms: {}, roomList: [] };
+            }
+        }
+
+        // 채팅방 목록 UI 업데이트
+        function updateRoomListUI() {
+            // 1:1 채팅방 목록 업데이트
+            const dmList = document.getElementById('dmList');
+            dmList.innerHTML = '';
+            
+            // 그룹 채팅방 목록 업데이트
+            const groupList = document.getElementById('groupList');
+            groupList.innerHTML = '';
+            
+            // 관심분야 채팅방 목록 업데이트
+            const interestList = document.getElementById('interestList');
+            interestList.innerHTML = '';
+            
+            chatData.roomList.forEach(room => {
+                if (room.type === 'dm') {
+                    createRoomListItem('dmList', room.name, room.unreadCount || 0);
+                } else if (room.type === 'group') {
+                    createRoomListItem('groupList', room.name, room.unreadCount || 0, room.participantCount || 0);
+                } else if (room.type === 'interest') {
+                    createRoomListItem('interestList', room.name, room.unreadCount || 0, room.participantCount || 0);
+                }
+            });
+        }
+
+        // 채팅방 목록 아이템 생성
+        function createRoomListItem(listId, roomName, unreadCount = 0, participantCount = 0) {
+            const list = document.getElementById(listId);
+            const li = document.createElement('li');
+            const isGroupChat = listId === 'groupList' || listId === 'interestList';
+            const isInterestRoom = listId === 'interestList';
+            
+            // 관심분야 방인 경우 이모지 추가
+            let displayName = roomName;
+            if (isInterestRoom) {
+                const interestEmojis = {
+                    '운동': '💪',
+                    '게임': '🎮',
+                    '음악': '🎵',
+                    '영화': '🎬',
+                    '요리': '👨‍🍳',
+                    '여행': '✈️',
+                    '스터디': '📚',
+                    '독서': '📖',
+                    '맛집': '🍽️'
+                };
+                const emoji = interestEmojis[roomName] || '🎯';
+                displayName = `${emoji} ${roomName}`;
+            }
+            
+            li.innerHTML = `
+                <div class="room-info">
+                    <div class="room-name-wrapper">
+                        <span class="room-name">${displayName}</span>
+                        ${unreadCount > 0 ? `<span class="unread-badge">${unreadCount}</span>` : ''}
+                    </div>
+                    ${isGroupChat ? `<span class="participant-count">${participantCount}명</span>` : ''}
+                </div>
+            `;
+            li.addEventListener('click', () => {
+                enterRoom(roomName);
+                
+                // 관심분야 방인 경우 비주얼 스타일 적용
+                if (isInterestRoom) {
+                    document.querySelectorAll('#interestList li').forEach(item => {
+                        item.classList.remove('active');
+                    });
+                    li.classList.add('active');
+                }
+            });
+            list.appendChild(li);
+        }
+
+        // 1:1 매칭 시작
+        function startRandomMatching() {
+            // 프로필 체크
+            if (!checkAnonProfile()) {
+                return;
+            }
+            
+            // 현재 사용자의 성별 정보 가져오기 (Flask 세션에서)
+            const currentProfile = {{ anon_profile | tojson | safe }};
+            const currentUserGender = currentProfile?.gender || '남자';
+            
+            // 이성 프로필만 필터링
+            const oppositeGenderProfiles = randomProfiles.filter(profile => 
+                profile.gender !== currentUserGender
+            );
+            
+            // 이성 프로필이 없는 경우 안내 메시지 표시
+            if (oppositeGenderProfiles.length === 0) {
+                alert('현재 매칭 가능한 상대가 없습니다.');
+                return;
+            }
+            
+            randomMatching = true;
+            randomStartTime = Date.now();
+      document.getElementById('startRandom').style.display = 'none';
+      document.getElementById('randomMatchingStatus').style.display = 'block';
+            
+            randomTimer = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - randomStartTime) / 1000);
+        document.getElementById('randomTimer').textContent = formatTime(elapsed);
+            }, 1000);
+
+      // 시연용: 5-10초 후 매칭 완료 (이성 프로필 중에서만 선택)
+      setTimeout(() => {
+        completeRandomMatching(oppositeGenderProfiles);
+      }, Math.random() * 5000 + 5000);
+        }
+
+        // 그룹 매칭 시작
+        function startGroupMatching() {
+            // 프로필 체크
+            if (!checkAnonProfile()) {
+                return;
+            }
+            
+            // 현재 사용자의 성별 정보 가져오기 (Flask 세션에서)
+            const currentProfile = {{ anon_profile | tojson | safe }};
+            const currentUserGender = currentProfile?.gender || '남자';
+            const currentUserNickname = currentProfile?.nickname || '익명의친구';
+            
+            // 대기열에 사용자 추가
+            const userInfo = {
+                nickname: currentUserNickname,
+                gender: currentUserGender,
+                joinTime: Date.now()
+            };
+            
+            if (currentUserGender === '남자') {
+                groupMatchingQueue.male.push(userInfo);
+            } else {
+                groupMatchingQueue.female.push(userInfo);
+            }
+            
+            groupMatching = true;
+            groupStartTime = Date.now();
+      document.getElementById('startGroup').style.display = 'none';
+      document.getElementById('groupMatchingStatus').style.display = 'block';
+            
+            groupTimer = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - groupStartTime) / 1000);
+        document.getElementById('groupTimer').textContent = formatTime(elapsed);
+                
+                // 대기 상태 업데이트
+                updateGroupMatchingStatus();
+            }, 1000);
+
+            // 그룹 매칭 시도
+            tryGroupMatching();
+        }
+
+        // 1:1 매칭 완료
+        function completeRandomMatching(availableProfiles = null) {
+            randomMatching = false;
+            clearInterval(randomTimer);
+            document.getElementById('startRandom').style.display = 'block';
+            document.getElementById('randomMatchingStatus').style.display = 'none';
+            
+            let matchedProfile;
+            
+            if (availableProfiles && availableProfiles.length > 0) {
+                // 이성 프로필 중에서 랜덤 선택
+                matchedProfile = availableProfiles[Math.floor(Math.random() * availableProfiles.length)];
+            } else {
+                // 기존 로직 (이성 필터링이 없는 경우)
+                const nicknames = ['익명의친구', '익명의학생', '익명의동료', '신비한친구', '알수없는누군가'];
+                const randomNickname = nicknames[Math.floor(Math.random() * nicknames.length)];
+                matchedProfile = { name: randomNickname };
+            }
+            
+            const roomName = matchedProfile.name;
+            
+            // 채팅방 데이터에 추가
+            if (!chatData.rooms[roomName]) {
+                chatData.rooms[roomName] = [];
+            }
+            
+            // 채팅방 목록에 추가 (중복 체크)
+            const existingRoom = chatData.roomList.find(room => room.name === roomName);
+            if (!existingRoom) {
+                chatData.roomList.push({
+                    name: roomName,
+                    type: 'dm',
+                    unreadCount: 0,
+                    createdAt: new Date().toISOString()
+                });
+                saveChatData();
+            }
+            
+            updateRoomListUI();
+            alert('1:1 매칭이 완료되었습니다!');
+        }
+
+        // 그룹 매칭 상태 업데이트
+        function updateGroupMatchingStatus() {
+            const maleCount = groupMatchingQueue.male.length;
+            const femaleCount = groupMatchingQueue.female.length;
+            const totalCount = maleCount + femaleCount;
+            
+            const matchingText = document.querySelector('#groupMatchingStatus .matching-text');
+            if (matchingText) {
+                if (totalCount < 3) {
+                    matchingText.textContent = `매칭 중... (대기자: 남자 ${maleCount}명, 여자 ${femaleCount}명)`;
+                } else {
+                    matchingText.textContent = `비율 맞춤 중... (대기자: 남자 ${maleCount}명, 여자 ${femaleCount}명)`;
+                }
+            }
+        }
+
+        // 그룹 매칭 시도 (남녀 비율 체크)
+        function tryGroupMatching() {
+            const maleCount = groupMatchingQueue.male.length;
+            const femaleCount = groupMatchingQueue.female.length;
+            const totalCount = maleCount + femaleCount;
+            
+            // 최소 3명 이상이어야 그룹 매칭 가능
+            if (totalCount < 3) {
+                // 대기 상태 유지
+                setTimeout(() => {
+                    if (groupMatching) {
+                        tryGroupMatching();
+                    }
+                }, 2000);
+                return;
+            }
+            
+            // 남녀 비율 체크 (5:5 ~ 2:1 범위)
+            let canFormGroup = false;
+            let groupMembers = [];
+            
+            // 가능한 그룹 조합 찾기
+            for (let groupSize = 3; groupSize <= 6; groupSize++) {
+                for (let maleInGroup = 1; maleInGroup <= groupSize - 1; maleInGroup++) {
+                    const femaleInGroup = groupSize - maleInGroup;
+                    
+                    // 비율 체크: 5:5 ~ 2:1 범위
+                    const ratio = Math.max(maleInGroup, femaleInGroup) / Math.min(maleInGroup, femaleInGroup);
+                    if (ratio <= 2 && maleInGroup <= maleCount && femaleInGroup <= femaleCount) {
+                        canFormGroup = true;
+                        
+                        // 그룹 멤버 선택 (대기열에서 제거)
+                        groupMembers = [
+                            ...groupMatchingQueue.male.splice(0, maleInGroup),
+                            ...groupMatchingQueue.female.splice(0, femaleInGroup)
+                        ];
+                        break;
+                    }
+                }
+                if (canFormGroup) break;
+            }
+            
+            if (canFormGroup && groupMembers.length > 0) {
+                // 그룹 매칭 완료
+                completeGroupMatching(groupMembers);
+            } else {
+                // 비율이 맞지 않아 대기
+                setTimeout(() => {
+                    if (groupMatching) {
+                        tryGroupMatching();
+                    }
+                }, 2000);
+            }
+        }
+
+        // 그룹 매칭 완료 (3-6명 제한, 남녀 비율 유지)
+        function completeGroupMatching(groupMembers) {
+            groupMatching = false;
+            clearInterval(groupTimer);
+            document.getElementById('startGroup').style.display = 'block';
+            document.getElementById('groupMatchingStatus').style.display = 'none';
+            
+            const groupNumber = chatData.roomList.filter(room => room.type === 'group').length + 1;
+            const participantCount = groupMembers.length;
+            
+            // 그룹 랜덤 채팅용 참여자 정보 생성
+            const groupRoomName = `그룹 ${groupNumber}`;
+            roomParticipants[groupRoomName] = {
+                count: participantCount,
+                users: groupMembers.map(member => member.nickname),
+                unreadCount: 0
+            };
+            
+            // 완성된 그룹을 대기열에 저장
+            groupMatchingQueue.groups.push({
+                roomName: groupRoomName,
+                members: groupMembers,
+                createdAt: Date.now()
+            });
+            
+            // 채팅방 데이터에 추가
+            if (!chatData.rooms[groupRoomName]) {
+                chatData.rooms[groupRoomName] = [];
+            }
+            
+            // 채팅방 목록에 추가
+            chatData.roomList.push({
+                name: groupRoomName,
+                type: 'group',
+                unreadCount: 0,
+                participantCount: participantCount,
+                createdAt: new Date().toISOString()
+            });
+            
+            saveChatData();
+            updateRoomListUI();
+            
+            // 남녀 비율 정보 표시
+            const maleCount = groupMembers.filter(m => m.gender === '남자').length;
+            const femaleCount = groupMembers.filter(m => m.gender === '여자').length;
+            alert(`그룹 매칭이 완료되었습니다! (${participantCount}명, 남자 ${maleCount}명, 여자 ${femaleCount}명)`);
+        }
+
+        // 매칭 취소
+        function cancelRandomMatching() {
+            randomMatching = false;
+            clearInterval(randomTimer);
+      document.getElementById('startRandom').style.display = 'block';
+      document.getElementById('randomMatchingStatus').style.display = 'none';
+        }
+
+        function cancelGroupMatching() {
+            // 현재 사용자를 대기열에서 제거
+            const currentProfile = JSON.parse(localStorage.getItem('anonProfile') || 'null');
+            const currentUserNickname = currentProfile?.nickname || '익명의친구';
+            
+            // 남자 대기열에서 제거
+            groupMatchingQueue.male = groupMatchingQueue.male.filter(user => user.nickname !== currentUserNickname);
+            // 여자 대기열에서 제거
+            groupMatchingQueue.female = groupMatchingQueue.female.filter(user => user.nickname !== currentUserNickname);
+            
+            groupMatching = false;
+            clearInterval(groupTimer);
+      document.getElementById('startGroup').style.display = 'block';
+      document.getElementById('groupMatchingStatus').style.display = 'none';
+    }
+
+    // 채팅방 생성
+    function createRoom(listId, roomName) {
+      const list = document.getElementById(listId);
+      const li = document.createElement('li');
+      const participantCount = roomParticipants[roomName]?.count || 0;
+      const unreadCount = roomParticipants[roomName]?.unreadCount || 0;
+      
+      // 1:1 채팅인지 그룹 채팅인지 구분
+      const isGroupChat = listId === 'roomList';
+      
+      li.innerHTML = `
+        <div class="room-info">
+          <div class="room-name-wrapper">
+            <span class="room-name">${roomName}</span>
+            ${unreadCount > 0 ? `<span class="unread-badge">${unreadCount}</span>` : ''}
+          </div>
+          ${isGroupChat ? `<span class="participant-count">${participantCount}명</span>` : ''}
+        </div>
+      `;
+      li.addEventListener('click', () => enterRoom(roomName));
+      list.appendChild(li);
+    }
+
+        // 현재 활성 채팅방
+        let currentRoom = null;
+        
+        // 랜덤 매칭 프로필 데이터
+        const randomProfiles = [
+            { name: '안녕', year: '23학번', gender: '남자', bio: '나도 좋아', avatar: '안', interests: ['운동', '음악'] },
+            { name: '민지', year: '22학번', gender: '여자', bio: '독서와 카페 좋아해요', avatar: '민', interests: ['독서', '영화'] },
+            { name: '철수', year: '21학번', gender: '남자', bio: '운동 같이 하실 분!', avatar: '철', interests: ['운동', '게임'] },
+            { name: '지현', year: '24학번', gender: '여자', bio: '영화 덕후에요', avatar: '지', interests: ['영화', '음악'] },
+            { name: '준호', year: '23학번', gender: '남자', bio: '게임 좋아해요', avatar: '준', interests: ['게임', '운동'] },
+            { name: '수진', year: '22학번', gender: '여자', bio: '요리 배우고 싶어요', avatar: '수', interests: ['요리', '독서'] }
+        ];
+        
+        // 채팅방별 참여자 정보 (관심사별 그룹 채팅 - 인원수 제한 없음)
+        const roomParticipants = {
+            '운동': {
+                count: 12,
+                users: ['김철수', '이영희', '박민수', '최지영', '정현우', '한소영', '윤태호', '강미래', '임동현', '서유진', '조성민', '배수진'],
+                unreadCount: 0
+            },
+            '게임': {
+                count: 8,
+                users: ['최준호', '김가은', '이현수', '박서연', '정민재', '한지은', '윤성호', '강다은'],
+                unreadCount: 0
+            },
+            '음악': {
+                count: 15,
+                users: ['김하늘', '이준서', '박예린', '최민석', '정소영', '한지훈', '윤서현', '강민지', '임태현', '서유나', '조현우', '배서영', '김도현', '이수진', '박재민'],
+                unreadCount: 0
+            },
+            '영화': {
+                count: 10,
+                users: ['최유진', '김태민', '이서영', '박준호', '정미래', '한동현', '윤소영', '강현우', '임지은', '서민수'],
+                unreadCount: 0
+            },
+            '독서': {
+                count: 7,
+                users: ['조예준', '배서현', '김민재', '이유진', '박현수', '최지영', '한태호'],
+                unreadCount: 0
+            },
+            '요리': {
+                count: 9,
+                users: ['윤소영', '강민수', '임지훈', '서예린', '조현우', '배다은', '김태현', '이서영', '박준호'],
+                unreadCount: 0
+            }
+        };
+
+        // 채팅방 입장
+        function enterRoom(roomName) {
+            currentRoom = roomName;
+            document.getElementById('chatHeader').textContent = roomName;
+            document.getElementById('chatContent').style.display = 'none';
+            document.getElementById('chatRoom').style.display = 'block';
+            
+            // 참여자 수 표시 (그룹 채팅방인 경우에만)
+            const participantCount = roomParticipants[roomName]?.count || 0;
+            const participantCountElement = document.getElementById('participantCount');
+            
+            if (roomParticipants[roomName]) {
+                // 그룹 채팅방
+                participantCountElement.textContent = `현재 ${participantCount}명 참여중`;
+                participantCountElement.style.display = 'block';
+            } else {
+                // 1:1 채팅방
+                participantCountElement.textContent = `1:1 채팅`;
+                participantCountElement.style.display = 'block';
+            }
+            
+            // 버튼들 표시
+            document.getElementById('backToHome').style.display = 'inline-flex';
+            document.getElementById('chatOptions').style.display = 'inline-flex';
+            
+            // 읽지 않은 메시지 수 초기화
+            if (roomParticipants[roomName]) {
+                roomParticipants[roomName].unreadCount = 0;
+                updateRoomUnreadCount(roomName);
+            }
+            
+            // 채팅방 목록에서 읽지 않은 메시지 수 초기화
+            if (roomData) {
+                roomData.unreadCount = 0;
+                saveChatData();
+                updateRoomListUI();
+            }
+            
+            // 활성 상태 업데이트
+            document.querySelectorAll('.room-list li, #dmList li').forEach(li => {
+                li.classList.remove('active');
+                if (li.textContent.includes(roomName)) {
+                    li.classList.add('active');
+                }
+            });
+            
+            // 저장된 메시지 로드
+            loadRoomMessages(roomName);
+        }
+
+        // 채팅방 메시지 로드
+        function loadRoomMessages(roomName) {
+            const messages = document.getElementById('messages');
+            messages.innerHTML = '';
+            
+            if (chatData.rooms[roomName] && chatData.rooms[roomName].length > 0) {
+                // 저장된 메시지 표시
+                chatData.rooms[roomName].forEach(messageData => {
+                    const messageWrapper = document.createElement('div');
+                    
+                    // 시스템 메시지인지 확인
+                    if (messageData.type === 'leave') {
+                        // 나가기 시스템 메시지
+                        messageWrapper.className = 'msg-wrapper system';
+                        messageWrapper.style.justifyContent = 'center';
+                        messageWrapper.style.margin = '8px 0';
+                        
+                        const messageDiv = document.createElement('div');
+                        messageDiv.className = 'msg system';
+                        messageDiv.style.background = 'linear-gradient(135deg, #f3f4f6, #e5e7eb)';
+                        messageDiv.style.color = '#6b7280';
+                        messageDiv.style.fontSize = '12px';
+                        messageDiv.style.fontStyle = 'italic';
+                        messageDiv.style.maxWidth = 'auto';
+                        messageDiv.style.padding = '6px 12px';
+                        messageDiv.style.borderRadius = '12px';
+                        messageDiv.style.border = '1px solid #d1d5db';
+                        
+                        messageDiv.innerHTML = `
+                            <div class="msg-content">${messageData.text}</div>
+                            <div class="msg-time" style="font-size: 10px; margin-top: 2px; opacity: 0.7;">${messageData.timeString}</div>
+                        `;
+                        
+                        messageWrapper.appendChild(messageDiv);
+                    } else {
+                        // 일반 메시지
+                        messageWrapper.className = `msg-wrapper ${messageData.isMe ? 'me' : ''}`;
+                        
+                        const messageDiv = document.createElement('div');
+                        messageDiv.className = `msg ${messageData.isMe ? 'me' : ''}`;
+                        
+                        if (messageData.isMe) {
+                            // 내 메시지
+                            messageDiv.innerHTML = `
+                                <div class="msg-content">${messageData.text}</div>
+                                <div class="msg-time">${messageData.timeString}</div>
+                            `;
+                        } else {
+                            // 상대방 메시지
+                            messageDiv.innerHTML = `
+                                <div class="msg-nickname">${messageData.nickname}</div>
+                                <div class="msg-content">${messageData.text}</div>
+                                <div class="msg-time">${messageData.timeString}</div>
+                            `;
+                        }
+                        
+                        messageWrapper.appendChild(messageDiv);
+                    }
+                    
+                    messages.appendChild(messageWrapper);
+                });
+            } else {
+                // 첫 입장 메시지
+                addMessage('채팅방에 입장했습니다.', false);
+            }
+            
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        // 메시지 전송
+        function sendMessage() {
+            const messageInput = document.getElementById('messageInput');
+            const message = messageInput.value.trim();
+            
+            if (message && currentRoom) {
+        addMessage(message, true);
+                messageInput.value = '';
+                
+        // 시연용 자동 응답
+                setTimeout(() => {
+                    const responses = [
+                        '안녕하세요!',
+                        '네, 맞습니다.',
+                        '정말요?',
+                        '흥미롭네요!',
+                        '그렇군요.',
+            '좋은 생각이에요!',
+            '어떻게 생각하세요?',
+            '맞아요!'
+                    ];
+                    const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+          addMessage(randomResponse, false);
+          
+          // 다른 방에 읽지 않은 메시지 수 증가 (테스트용)
+          if (Math.random() > 0.7) { // 30% 확률로 다른 방에 메시지 도착
+            const rooms = Object.keys(roomParticipants);
+            const randomRoom = rooms[Math.floor(Math.random() * rooms.length)];
+            if (randomRoom !== currentRoom) {
+              incrementUnreadCount(randomRoom);
+            }
+          }
+                }, Math.random() * 2000 + 1000);
+            }
+        }
+
+    // 랜덤 매칭 홈으로 돌아가기
+    function backToHome() {
+      currentRoom = null;
+      document.getElementById('chatHeader').textContent = '랜덤 매칭';
+      document.getElementById('chatContent').style.display = 'block';
+      document.getElementById('chatRoom').style.display = 'none';
+      
+      // 참여자 수와 버튼들 숨기기
+      document.getElementById('participantCount').style.display = 'none';
+      document.getElementById('backToHome').style.display = 'none';
+      document.getElementById('chatOptions').style.display = 'none';
+      document.getElementById('chatOptionsDropdown').style.display = 'none';
+      
+      // 활성 채팅방 선택 해제
+      document.querySelectorAll('.room-list li').forEach(li => {
+        li.classList.remove('active');
+      });
+        }
+
+        // 메시지 추가
+        function addMessage(text, isMe, nickname = null) {
+            if (!currentRoom) return;
+            
+            const messages = document.getElementById('messages');
+            
+            // 현재 시간 생성
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('ko-KR', { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                hour12: false 
+            });
+            
+            // 메시지 데이터 생성
+            const messageData = {
+                text: text,
+                isMe: isMe,
+                nickname: isMe ? (JSON.parse(localStorage.getItem('anonProfile') || '{}').nickname || '나') : (nickname || getRandomNickname()),
+                timestamp: now.toISOString(),
+                timeString: timeString
+            };
+            
+            // 채팅 데이터에 저장
+            if (!chatData.rooms[currentRoom]) {
+                chatData.rooms[currentRoom] = [];
+            }
+            chatData.rooms[currentRoom].push(messageData);
+            saveChatData();
+            
+            // 메시지 래퍼 생성
+            const messageWrapper = document.createElement('div');
+            messageWrapper.className = `msg-wrapper ${isMe ? 'me' : ''}`;
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `msg ${isMe ? 'me' : ''}`;
+            
+            if (isMe) {
+                // 내 메시지
+                messageDiv.innerHTML = `
+                    <div class="msg-content">${text}</div>
+                    <div class="msg-time">${timeString}</div>
+                `;
+            } else {
+                // 상대방 메시지 (닉네임 포함)
+                messageDiv.innerHTML = `
+                    <div class="msg-nickname">${messageData.nickname}</div>
+                    <div class="msg-content">${text}</div>
+                    <div class="msg-time">${timeString}</div>
+                `;
+            }
+            
+            messageWrapper.appendChild(messageDiv);
+            messages.appendChild(messageWrapper);
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        // 나가기 메시지 추가
+        function addLeaveMessage(nickname) {
+            if (!currentRoom) return;
+            
+            const messages = document.getElementById('messages');
+            
+            // 현재 시간 생성
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('ko-KR', { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                hour12: false 
+            });
+            
+            // 나가기 메시지 데이터 생성
+            const leaveMessageData = {
+                text: `${nickname}님이 채팅방을 나갔습니다.`,
+                isMe: false,
+                nickname: '시스템',
+                timestamp: now.toISOString(),
+                timeString: timeString,
+                type: 'leave'
+            };
+            
+            // 채팅 데이터에 저장
+            if (!chatData.rooms[currentRoom]) {
+                chatData.rooms[currentRoom] = [];
+            }
+            chatData.rooms[currentRoom].push(leaveMessageData);
+            saveChatData();
+            
+            // 시스템 메시지 래퍼 생성
+            const messageWrapper = document.createElement('div');
+            messageWrapper.className = 'msg-wrapper system';
+            messageWrapper.style.justifyContent = 'center';
+            messageWrapper.style.margin = '8px 0';
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'msg system';
+            messageDiv.style.background = 'linear-gradient(135deg, #f3f4f6, #e5e7eb)';
+            messageDiv.style.color = '#6b7280';
+            messageDiv.style.fontSize = '12px';
+            messageDiv.style.fontStyle = 'italic';
+            messageDiv.style.maxWidth = 'auto';
+            messageDiv.style.padding = '6px 12px';
+            messageDiv.style.borderRadius = '12px';
+            messageDiv.style.border = '1px solid #d1d5db';
+            
+            messageDiv.innerHTML = `
+                <div class="msg-content">${leaveMessageData.text}</div>
+                <div class="msg-time" style="font-size: 10px; margin-top: 2px; opacity: 0.7;">${timeString}</div>
+            `;
+            
+            messageWrapper.appendChild(messageDiv);
+            messages.appendChild(messageWrapper);
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        // 랜덤 닉네임 생성
+        function getRandomNickname() {
+            // 1:1 채팅방인 경우 채팅방 이름을 닉네임으로 사용
+            const roomData = chatData.roomList.find(room => room.name === currentRoom);
+            if (roomData && roomData.type === 'dm') {
+                return currentRoom;
+            }
+            
+            // 그룹 채팅방이나 관심분야 방인 경우
+            if (currentRoom && roomParticipants[currentRoom]) {
+                const users = roomParticipants[currentRoom].users;
+                // 실제 사용자 닉네임 중에서 랜덤 선택
+                return users[Math.floor(Math.random() * users.length)];
+            }
+            
+            // 기본값
+            return '익명' + Math.floor(Math.random() * 100);
+        }
+
+    // 채팅 옵션 관련 함수들
+    function toggleChatOptions() {
+      const dropdown = document.getElementById('chatOptionsDropdown');
+      const optionsBtn = document.getElementById('chatOptions');
+      
+      if (dropdown.style.display === 'none' || dropdown.style.display === '') {
+        // 드롭다운 위치 계산
+        const btnRect = optionsBtn.getBoundingClientRect();
+        dropdown.style.top = (btnRect.bottom + 8) + 'px';
+        dropdown.style.right = (window.innerWidth - btnRect.right) + 'px';
+        dropdown.style.display = 'block';
+      } else {
+        dropdown.style.display = 'none';
+      }
+    }
+    
+    function showParticipants() {
+      const participantsList = document.getElementById('participantsList');
+      participantsList.innerHTML = '';
+      
+      if (currentRoom && roomParticipants[currentRoom]) {
+        // 그룹 채팅방인 경우
+        const users = roomParticipants[currentRoom].users;
+        
+        users.forEach((user, index) => {
+          const participantItem = document.createElement('div');
+          participantItem.className = 'participant-item';
+          participantItem.onclick = () => showParticipantProfile(user);
+          
+          participantItem.innerHTML = `
+            <div class="participant-avatar">👤</div>
+            <div class="participant-info">
+              <div class="participant-name">${user}</div>
+              <div class="participant-status">온라인</div>
+            </div>
+            <div class="participant-profile">프로필 보기</div>
+          `;
+          
+          participantsList.appendChild(participantItem);
+        });
+      } else {
+        // 1:1 채팅방인 경우 (상대방과 나)
+        const currentUser = localStorage.getItem('anonProfile') ? 
+          JSON.parse(localStorage.getItem('anonProfile')).nickname : '익명의친구';
+        const opponentName = currentRoom; // 1:1 채팅에서는 방 이름이 상대방 이름
+        
+        // 상대방 프로필
+        const opponentItem = document.createElement('div');
+        opponentItem.className = 'participant-item';
+        opponentItem.onclick = () => showParticipantProfile(opponentName);
+        
+        opponentItem.innerHTML = `
+          <div class="participant-avatar">👤</div>
+          <div class="participant-info">
+            <div class="participant-name">${opponentName}</div>
+            <div class="participant-status">온라인</div>
+          </div>
+          <div class="participant-profile">프로필 보기</div>
+        `;
+        participantsList.appendChild(opponentItem);
+        
+        // 내 프로필
+        const myItem = document.createElement('div');
+        myItem.className = 'participant-item';
+        myItem.onclick = () => showParticipantProfile(currentUser);
+        
+        myItem.innerHTML = `
+          <div class="participant-avatar">👤</div>
+          <div class="participant-info">
+            <div class="participant-name">${currentUser} (나)</div>
+            <div class="participant-status">온라인</div>
+          </div>
+          <div class="participant-profile">프로필 보기</div>
+        `;
+        participantsList.appendChild(myItem);
+      }
+      
+      document.getElementById('participantsModal').style.display = 'flex';
+      document.getElementById('chatOptionsDropdown').style.display = 'none';
+    }
+    
+    function closeParticipantsModal() {
+      document.getElementById('participantsModal').style.display = 'none';
+    }
+    
+    function showParticipantProfile(nickname) {
+      // 내 프로필인지 확인
+      const currentUser = localStorage.getItem('anonProfile') ? 
+        JSON.parse(localStorage.getItem('anonProfile')).nickname : '익명의친구';
+      
+      let profile;
+      
+      if (nickname === currentUser || nickname.includes('(나)')) {
+        // 내 프로필인 경우
+        const myProfile = localStorage.getItem('anonProfile') ? 
+          JSON.parse(localStorage.getItem('anonProfile')) : null;
+        
+        profile = myProfile ? {
+          year: myProfile.year,
+          gender: myProfile.gender,
+          bio: myProfile.bio,
+          interests: myProfile.interests
+        } : {
+          year: '2024',
+          gender: '남자',
+          bio: '새로운 친구를 만나고 싶어요!',
+          interests: ['운동', '음악']
+        };
+      } else {
+        // 다른 사용자 프로필인 경우
+        const mockProfiles = {
+          '익명1': { year: '2024', gender: '남자', bio: '운동을 좋아하는 학생입니다.', interests: ['운동', '음악'] },
+          '익명2': { year: '2023', gender: '여자', bio: '독서와 영화를 즐깁니다.', interests: ['독서', '영화'] },
+          '익명3': { year: '2025', gender: '남자', bio: '게임과 요리를 좋아해요.', interests: ['게임', '요리'] },
+          '익명4': { year: '2024', gender: '여자', bio: '음악을 사랑합니다.', interests: ['음악', '운동'] },
+          '익명5': { year: '2023', gender: '남자', bio: '영화 감상을 좋아해요.', interests: ['영화', '독서'] },
+          '안녕': { year: '23학번', gender: '남자', bio: '나도 좋아', interests: ['운동', '음악'] },
+          '민지': { year: '22학번', gender: '여자', bio: '독서와 카페 좋아해요', interests: ['독서', '영화'] },
+          '철수': { year: '21학번', gender: '남자', bio: '운동 같이 하실 분!', interests: ['운동', '게임'] },
+          '지현': { year: '24학번', gender: '여자', bio: '영화 덕후에요', interests: ['영화', '음악'] },
+          '준호': { year: '23학번', gender: '남자', bio: '게임 좋아해요', interests: ['게임', '운동'] },
+          '수진': { year: '22학번', gender: '여자', bio: '요리 배우고 싶어요', interests: ['요리', '독서'] }
+        };
+        
+        // 기본 프로필 정보 생성 (랜덤)
+        const defaultProfiles = [
+          { year: '2024', gender: '남자', bio: '새로운 친구를 만나고 싶어요!', interests: ['운동', '음악'] },
+          { year: '2023', gender: '여자', bio: '재미있는 대화를 좋아해요.', interests: ['독서', '영화'] },
+          { year: '2025', gender: '남자', bio: '게임과 요리를 좋아해요.', interests: ['게임', '요리'] },
+          { year: '2024', gender: '여자', bio: '음악을 사랑합니다.', interests: ['음악', '운동'] },
+          { year: '2023', gender: '남자', bio: '영화 감상을 좋아해요.', interests: ['영화', '독서'] }
+        ];
+        
+        const randomProfile = defaultProfiles[Math.floor(Math.random() * defaultProfiles.length)];
+        profile = mockProfiles[nickname] || randomProfile;
+      }
+      
+      const profileContent = document.getElementById('participantProfileContent');
+      profileContent.innerHTML = `
+        <div class="profile-avatar-large">👤</div>
+        <h4 style="margin: 0 0 8px 0; color: #374151;">${nickname}</h4>
+        <div class="profile-details">
+          <div class="profile-detail-item">
+            <span class="profile-detail-label">학번</span>
+            <span class="profile-detail-value">${profile.year}</span>
+          </div>
+          <div class="profile-detail-item">
+            <span class="profile-detail-label">성별</span>
+            <span class="profile-detail-value">${profile.gender}</span>
+          </div>
+          <div class="profile-detail-item">
+            <span class="profile-detail-label">소개</span>
+            <span class="profile-detail-value">${profile.bio}</span>
+          </div>
+          <div class="profile-detail-item">
+            <span class="profile-detail-label">관심사</span>
+            <span class="profile-detail-value">${profile.interests.join(', ')}</span>
+          </div>
+        </div>
+      `;
+      
+      document.getElementById('participantProfileModal').style.display = 'flex';
+      closeParticipantsModal();
+    }
+    
+    function closeParticipantProfileModal() {
+      document.getElementById('participantProfileModal').style.display = 'none';
+    }
+    
+    
+    function leaveChatRoom() {
+      if (confirm('정말로 채팅방을 나가시겠습니까?')) {
+        if (!currentRoom) return;
+        
+        // 현재 사용자 정보 가져오기
+        const currentUser = localStorage.getItem('anonProfile') ? 
+          JSON.parse(localStorage.getItem('anonProfile')).nickname : '익명의친구';
+        
+        // 나가기 메시지 추가
+        addLeaveMessage(currentUser);
+        
+        // 채팅방 목록에서 제거
+        chatData.roomList = chatData.roomList.filter(room => room.name !== currentRoom);
+        
+        // 채팅 기록 삭제
+        if (chatData.rooms[currentRoom]) {
+            delete chatData.rooms[currentRoom];
+        }
+        
+        // 그룹 채팅방인 경우 참여자 수 감소
+        if (roomParticipants[currentRoom]) {
+          roomParticipants[currentRoom].count = Math.max(0, roomParticipants[currentRoom].count - 1);
+          
+          // 참여자 목록에서 현재 사용자 제거 (실제로는 서버에서 처리해야 함)
+          const userIndex = roomParticipants[currentRoom].users.indexOf(currentUser);
+          if (userIndex > -1) {
+            roomParticipants[currentRoom].users.splice(userIndex, 1);
+          }
+        }
+        
+        // 데이터 저장 및 UI 업데이트
+        saveChatData();
+        updateRoomListUI();
+        
+        // 홈으로 돌아가기
+        backToHome();
+        alert('채팅방에서 나갔습니다.');
+      }
+      document.getElementById('chatOptionsDropdown').style.display = 'none';
+    }
+    
+    // 방별 참여자 수 업데이트
+    function updateRoomParticipantCount(roomName) {
+      document.querySelectorAll('.room-list li').forEach(li => {
+        const roomInfo = li.querySelector('.room-info');
+        if (roomInfo) {
+          const roomNameSpan = roomInfo.querySelector('.room-name');
+          if (roomNameSpan && roomNameSpan.textContent === roomName) {
+            const countSpan = roomInfo.querySelector('.participant-count');
+            const newCount = roomParticipants[roomName]?.count || 0;
+            countSpan.textContent = `${newCount}명`;
+          }
+        }
+      });
+    }
+    
+    // 방별 읽지 않은 메시지 수 업데이트
+    function updateRoomUnreadCount(roomName) {
+      document.querySelectorAll('.room-list li').forEach(li => {
+        const roomInfo = li.querySelector('.room-info');
+        if (roomInfo) {
+          const roomNameSpan = roomInfo.querySelector('.room-name');
+          if (roomNameSpan && roomNameSpan.textContent === roomName) {
+            const roomNameWrapper = roomInfo.querySelector('.room-name-wrapper');
+            const unreadCount = roomParticipants[roomName]?.unreadCount || 0;
+            
+            // 기존 배지 제거
+            const existingBadge = roomNameWrapper.querySelector('.unread-badge');
+            if (existingBadge) {
+              existingBadge.remove();
+            }
+            
+            // 새 배지 추가 (읽지 않은 메시지가 있을 때만)
+            if (unreadCount > 0) {
+              const badge = document.createElement('span');
+              badge.className = 'unread-badge';
+              badge.textContent = unreadCount;
+              roomNameWrapper.appendChild(badge);
+            }
+          }
+        }
+      });
+    }
+    
+    // 읽지 않은 메시지 수 증가 (상대방 메시지 수신 시)
+    function incrementUnreadCount(roomName) {
+      if (roomName !== currentRoom && roomParticipants[roomName]) {
+        roomParticipants[roomName].unreadCount++;
+        updateRoomUnreadCount(roomName);
+      }
+    }
+    
+    // 랜덤 매칭 프로필 생성
+    function generateRandomProfiles() {
+      const container = document.getElementById('profileCardsContainer');
+      container.innerHTML = '';
+      
+      randomProfiles.forEach(profile => {
+        const card = document.createElement('div');
+        card.className = 'random-profile-card';
+        card.innerHTML = `
+          <div class="random-profile-avatar">${profile.avatar}</div>
+          <div class="random-profile-name">${profile.name}</div>
+          <div class="random-profile-details">${profile.year} · ${profile.gender}</div>
+          <div class="random-profile-bio">${profile.bio}</div>
+          <button class="random-profile-btn" onclick="viewProfile('${profile.name}')">프로필 보기</button>
+        `;
+        container.appendChild(card);
+      });
+    }
+    
+    // 프로필 보기
+    function viewProfile(profileName) {
+      const profile = randomProfiles.find(p => p.name === profileName);
+      if (profile) {
+        const modalContent = document.getElementById('profileDetailContent');
+        
+        // 관심사 태그 생성
+        const interestsHtml = profile.interests.map(interest => 
+          `<span class="profile-detail-interest-tag">${interest}</span>`
+        ).join('');
+        
+        modalContent.innerHTML = `
+          <div class="profile-detail-avatar">${profile.avatar}</div>
+          <div class="profile-detail-name">${profile.name}</div>
+          <div class="profile-detail-info">${profile.year} · ${profile.gender}</div>
+          <div class="profile-detail-bio">${profile.bio}</div>
+          <div class="profile-detail-interests">
+            <div class="profile-detail-interests-title">관심사</div>
+            <div class="profile-detail-interests-list">
+              ${interestsHtml}
+            </div>
+          </div>
+          <div class="profile-detail-actions">
+            <button class="profile-detail-btn secondary" onclick="closeProfileDetailModal()">닫기</button>
+          </div>
+        `;
+        
+        document.getElementById('profileDetailModal').style.display = 'flex';
+      }
+    }
+    
+    // 프로필 상세 모달 닫기
+    function closeProfileDetailModal() {
+      document.getElementById('profileDetailModal').style.display = 'none';
+    }
+    
+    
+    // 프로필 캐러셀 스크롤
+    function scrollProfiles(direction) {
+      const container = document.getElementById('profileCardsContainer');
+      const scrollAmount = 220; // 카드 너비 + 간격
+      container.scrollBy({
+        left: direction * scrollAmount,
+        behavior: 'smooth'
+      });
+    }
+
+    // 익명 프로필 체크 함수 (Flask에서 이미 세션 체크 완료)
+    function checkAnonProfile() {
+      // Flask에서 세션이 없으면 이미 /profile-setup으로 리디렉트됨
+      // 이 페이지에 접근했다는 것은 세션이 있다는 의미
+      return true;
+    }
+
+    // 이벤트 리스너
+    document.addEventListener('DOMContentLoaded', function() {
+      // 년도 설정
+      document.getElementById('year').textContent = new Date().getFullYear();
+      
+      // 채팅 데이터 로드
+      loadChatData();
+      updateRoomListUI();
+      
+      // 채팅 옵션 버튼 이벤트
+      document.getElementById('chatOptions').addEventListener('click', toggleChatOptions);
+      
+      // 드롭다운 외부 클릭 시 닫기
+      document.addEventListener('click', function(e) {
+        const dropdown = document.getElementById('chatOptionsDropdown');
+        const optionsBtn = document.getElementById('chatOptions');
+        
+        if (!dropdown.contains(e.target) && !optionsBtn.contains(e.target)) {
+          dropdown.style.display = 'none';
+        }
+      });
+      
+      // 모달 외부 클릭 시 닫기
+      document.addEventListener('click', function(e) {
+        const participantsModal = document.getElementById('participantsModal');
+        const participantProfileModal = document.getElementById('participantProfileModal');
+        const profileDetailModal = document.getElementById('profileDetailModal');
+        
+        if (e.target === participantsModal) {
+          closeParticipantsModal();
+        }
+        
+        if (e.target === participantProfileModal) {
+          closeParticipantProfileModal();
+        }
+        
+        if (e.target === profileDetailModal) {
+          closeProfileDetailModal();
+        }
+      });
+      
+      loadAnonProfile();
+      
+      // 랜덤 매칭 프로필 생성
+      generateRandomProfiles();
+      
+      // 기본 관심분야 방들을 채팅방 목록에 추가
+      initializeDefaultInterestRooms();
+      
+      // 매칭 버튼
+      document.getElementById('startRandom').addEventListener('click', startRandomMatching);
+      document.getElementById('startGroup').addEventListener('click', startGroupMatching);
+      document.getElementById('cancelRandom').addEventListener('click', cancelRandomMatching);
+      document.getElementById('cancelGroup').addEventListener('click', cancelGroupMatching);
+      
+      // 메시지 전송
+        document.getElementById('sendButton').addEventListener('click', sendMessage);
+        document.getElementById('messageInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+      // 랜덤 매칭 홈으로 돌아가기
+      document.getElementById('backToHome').addEventListener('click', backToHome);
+
+      // 모바일 메뉴는 navigation.js에서 처리됩니다
+    });
+    </script>
+    <script src="{{ url_for("static", filename="js/script.js") }}"></script>
+    <script src="{{ url_for("static", filename="js/navigation.js") }}"></script>
+    <script src="{{ url_for("static", filename="js/router.js") }}"></script>
+</body>
+</html>

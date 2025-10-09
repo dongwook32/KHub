@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KBU hub | 익명 프로필 설정</title>
+  <link rel="icon" href="{{ url_for("static", filename="images/logo.png") }}">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="{{ url_for("static", filename="css/nav.css") }}">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: { peach: '#FFC8B2', peachDeep: '#FF9F80', cream: '#FFF7F2', cocoa:'#6B7280', ink:'#1F2937', mint:'#B7F4E6', lemon:'#FFF3A3' },
+          boxShadow: { soft:'0 10px 30px rgba(255,159,128,.18)', glow:'0 0 0 0 rgba(255,159,128,.0)', card:'0 10px 24px rgba(17,24,39,.08)' },
+          borderRadius: { bubble:'999px', xl2:'1.25rem' }
+        }
+      }
+    }
+  </script>
+  <style>
+    html, body { font-family: Pretendard, system-ui, -apple-system, Segoe UI, Roboto, 'Noto Sans KR', sans-serif; }
+    .top-grad{ background: radial-gradient(60% 60% at 0% 0%, #FFF0E7 0%, rgba(255,240,231,0) 60%), radial-gradient(60% 60% at 100% 0%, #FFE7DB 0%, rgba(255,231,219,0) 60%); }
+    .glass{ background: rgba(255,255,255,.7); backdrop-filter: blur(10px); }
+    /* 네비게이션 스타일은 nav.css (CSS Cascade Layers)에서 관리 */
+    
+    /* 헤더 스타일은 navigation.css에서 관리 */
+    
+    /* 프로필 카드 스타일 */
+    .profile-card {
+        background: linear-gradient(135deg, #ffffff 0%, #fefefe 100%);
+        box-shadow: 0 20px 60px rgba(255, 159, 128, 0.15), 0 8px 32px rgba(0, 0, 0, 0.08);
+        border: 1px solid rgba(255, 200, 178, 0.3);
+        position: relative;
+    }
+    
+    .profile-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, rgba(255, 200, 178, 0.05) 0%, rgba(183, 244, 230, 0.05) 100%);
+        border-radius: inherit;
+        pointer-events: none;
+    }
+    
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(255, 159, 128, 0.15);
+    }
+    
+    .gender-btn {
+        background: #f8f9fa;
+        border-color: #dee2e6;
+        color: #6c757d;
+        transition: all 0.3s ease;
+    }
+    
+    .gender-btn:hover {
+        background: #e9ecef;
+        border-color: #FF9F80;
+        color: #495057;
+    }
+    
+    .gender-btn.active {
+        background: #f8f9fa;
+        border-color: #FF7B54;
+        border-width: 2px;
+        color: #495057;
+        font-weight: 600;
+    }
+    
+    .interest-chip.selected {
+        background: linear-gradient(135deg, #FF9F80, #FFC8B2);
+        border-color: #FF9F80;
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(255, 159, 128, 0.3);
+    }
+    
+    .save-btn:hover {
+        box-shadow: 0 12px 40px rgba(255, 159, 128, 0.4);
+        transform: translateY(-2px);
+    }
+    
+    .profile-card:hover {
+        transform: translateY(-5px);
+        transition: transform 0.3s ease;
+    }
+    
+    /* 반응형 디자인 */
+    @media (max-width: 768px) {
+        .profile-card {
+            margin: 16px;
+            padding: 24px;
+        }
+        
+        .grid.md\\:grid-cols-2 {
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+        
+        .flex.gap-4 {
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .save-btn, .delete-btn {
+            width: 100%;
+        }
+    }
+    
+    /* 통일된 Footer 스타일 */
+    footer {
+        border-top: 1px solid rgba(255, 200, 178, 0.5);
+        margin-top: 0;
+        padding: 0;
+    }
+    
+    footer > div {
+        max-width: 72rem;
+        margin: 0 auto;
+        padding: 1.5rem 1rem;
+        font-size: 0.875rem;
+        line-height: 1.25rem;
+        color: #6B7280;
+        text-align: center;
+    }
+  </style>
+</head>
+<body class="bg-cream">
+  <div class="top-grad h-[160px] w-full absolute inset-0 -z-10 pointer-events-none"></div>
+
+  <header class="fixed top-0 left-0 right-0 z-50 border-b border-peach/40 glass">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-4">
+      <a href="{{ url_for('index') }}" class="flex items-center gap-2 font-extrabold text-lg">
+        <img src="{{ url_for("static", filename="images/logo.png") }}" alt="KBU hub" class="w-9 h-9 rounded-full shadow-[0_8px_18px_rgba(255,159,128,.25)]">
+        <span>hub</span>
+      </a>
+      <nav class="ml-auto hidden md:flex">
+        <div id="navPill" class="nav-pill">
+          <!-- 네비게이션 아이템은 navigation.js에서 동적으로 생성됩니다 -->
+        </div>
+      </nav>
+      <button id="menuBtn" class="md:hidden ml-auto p-2 rounded-full border border-peach/60">☰</button>
+    </div>
+    <div id="mobileNav" class="hidden md:hidden px-4 pb-3 border-t border-peach/40 bg-white/70">
+      <div class="flex flex-col gap-1 py-2 text-sm">
+        <!-- 모바일 네비게이션 아이템은 navigation.js에서 동적으로 생성됩니다 -->
+      </div>
+    </div>
+  </header>
+
+  <main class="anonymous-card-container" style="display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: calc(100vh - 120px); padding: 40px 25px; box-sizing: border-box; max-width: 1200px; margin: 0 auto; background: transparent; margin-top: 80px;">
+    <!-- 익명 프로필 카드 -->
+    <div class="text-center mb-8">
+        <h2 class="text-2xl font-bold text-gray-800 mb-2">익명 프로필 만들기</h2>
+        <p class="text-gray-600">나만의 특별한 익명 프로필을 예쁘게 꾸며보세요!</p>
+    </div>
+    
+    <div class="profile-card bg-white rounded-3xl shadow-2xl p-8 border border-peach/20 relative overflow-hidden" style="max-width: 700px; width: 100%; margin: 0 auto;">
+        <!-- 카드 장식 요소 -->
+        <div class="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-peach/20 to-lemon/20 rounded-full -translate-y-16 translate-x-16"></div>
+        <div class="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-mint/20 to-peach/20 rounded-full translate-y-12 -translate-x-12"></div>
+        
+        <form id="anon-form" class="relative z-10" method="POST" action="{{ url_for('profile_setup') }}">
+            <!-- 학번 & 성별 선택 -->
+            <div class="grid md:grid-cols-2 gap-6 mb-6">
+                <div class="form-group">
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        <span class="inline-block mr-2">🎓</span>몇 학번인가요?
+                    </label>
+                    <select name="year" id="ap_year" required class="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl bg-white text-gray-700 focus:border-peachDeep focus:ring-4 focus:ring-peach/20 transition-all duration-300 hover:border-peach/50">
+                        <option value="">선택해주세요</option>
+                        <option value="25학번">25학번</option>
+                        <option value="24학번">24학번</option>
+                        <option value="23학번">23학번</option>
+                        <option value="22학번">22학번</option>
+                        <option value="21학번">21학번</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        <span class="inline-block mr-2">👤</span>성별 선택
+                    </label>
+                    <input type="hidden" name="gender" id="gender_input" value="남자" required>
+                    <div class="flex gap-2">
+                        <button type="button" class="gender-btn flex-1 py-3 px-4 border-2 border-gray-200 rounded-2xl text-gray-600 font-medium transition-all duration-300 hover:border-peach/50 hover:bg-peach/10 active" data-gender="남자" onclick="selectGender(this)">
+                            <span class="mr-2">🙋‍♂️</span>남자
+                        </button>
+                        <button type="button" class="gender-btn flex-1 py-3 px-4 border-2 border-gray-200 rounded-2xl text-gray-600 font-medium transition-all duration-300 hover:border-peach/50 hover:bg-peach/10" data-gender="여자" onclick="selectGender(this)">
+                            <span class="mr-2">🙋‍♀️</span>여자
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 닉네임 입력 -->
+            <div class="form-group mb-6">
+                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                    <span class="inline-block mr-2">🏷️</span>닉네임 (최대 10자)
+                </label>
+                <div class="relative">
+                    <input type="text" name="nickname" id="ap_nickname" maxlength="10" placeholder="예) 익명의친구" 
+                           class="w-full px-4 py-3 pr-16 border-2 border-gray-200 rounded-2xl bg-white text-gray-700 focus:border-peachDeep focus:ring-4 focus:ring-peach/20 transition-all duration-300 hover:border-peach/50">
+                    <div class="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-gray-400">
+                        <span id="ap_nickname_count">0</span>/10
+                    </div>
+                </div>
+            </div>
+
+            <!-- 자기소개 -->
+            <div class="form-group mb-6">
+                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                    <span class="inline-block mr-2">💬</span>자기소개 (최대 100자)
+                </label>
+                <div class="relative">
+                    <textarea name="bio" id="ap_bio" rows="4" maxlength="100" 
+                              placeholder="예) 사람 만나 얘기하는 거 좋아해요. 영화/카페/산책 좋아합니다." 
+                              class="w-full px-4 py-3 pr-16 border-2 border-gray-200 rounded-2xl bg-white text-gray-700 focus:border-peachDeep focus:ring-4 focus:ring-peach/20 transition-all duration-300 hover:border-peach/50 resize-none"></textarea>
+                    <div class="absolute bottom-3 right-4 text-xs text-gray-400">
+                        <span id="ap_count">0</span>/100
+                    </div>
+                </div>
+            </div>
+
+            <!-- 관심사 선택 -->
+            <div class="form-group mb-8">
+                <label class="block text-sm font-semibold text-gray-700 mb-3">
+                    <span class="inline-block mr-2">🎯</span>관심사 선택 (최소 1개 이상 필수)
+                    <span class="text-xs text-gray-500 ml-2">
+                        <span id="selected-count">0</span>개 선택됨
+                    </span>
+                </label>
+                <div id="ap_interests" class="flex flex-wrap gap-2">
+                    <label class="interest-chip px-4 py-2 border-2 border-gray-200 rounded-full text-sm font-medium text-gray-600 transition-all duration-300 hover:border-peach/50 hover:bg-peach/10 hover:scale-105 cursor-pointer">
+                        <input type="checkbox" name="interests" value="영화" class="hidden interest-checkbox">
+                        <span class="mr-1">🎬</span>영화
+                    </label>
+                    <label class="interest-chip px-4 py-2 border-2 border-gray-200 rounded-full text-sm font-medium text-gray-600 transition-all duration-300 hover:border-peach/50 hover:bg-peach/10 hover:scale-105 cursor-pointer">
+                        <input type="checkbox" name="interests" value="운동" class="hidden interest-checkbox">
+                        <span class="mr-1">💪</span>운동
+                    </label>
+                    <label class="interest-chip px-4 py-2 border-2 border-gray-200 rounded-full text-sm font-medium text-gray-600 transition-all duration-300 hover:border-peach/50 hover:bg-peach/10 hover:scale-105 cursor-pointer">
+                        <input type="checkbox" name="interests" value="게임" class="hidden interest-checkbox">
+                        <span class="mr-1">🎮</span>게임
+                    </label>
+                    <label class="interest-chip px-4 py-2 border-2 border-gray-200 rounded-full text-sm font-medium text-gray-600 transition-all duration-300 hover:border-peach/50 hover:bg-peach/10 hover:scale-105 cursor-pointer">
+                        <input type="checkbox" name="interests" value="음악" class="hidden interest-checkbox">
+                        <span class="mr-1">🎵</span>음악
+                    </label>
+                    <label class="interest-chip px-4 py-2 border-2 border-gray-200 rounded-full text-sm font-medium text-gray-600 transition-all duration-300 hover:border-peach/50 hover:bg-peach/10 hover:scale-105 cursor-pointer">
+                        <input type="checkbox" name="interests" value="카페" class="hidden interest-checkbox">
+                        <span class="mr-1">☕</span>카페
+                    </label>
+                    <label class="interest-chip px-4 py-2 border-2 border-gray-200 rounded-full text-sm font-medium text-gray-600 transition-all duration-300 hover:border-peach/50 hover:bg-peach/10 hover:scale-105 cursor-pointer">
+                        <input type="checkbox" name="interests" value="여행" class="hidden interest-checkbox">
+                        <span class="mr-1">✈️</span>여행
+                    </label>
+                    <label class="interest-chip px-4 py-2 border-2 border-gray-200 rounded-full text-sm font-medium text-gray-600 transition-all duration-300 hover:border-peach/50 hover:bg-peach/10 hover:scale-105 cursor-pointer">
+                        <input type="checkbox" name="interests" value="스터디" class="hidden interest-checkbox">
+                        <span class="mr-1">📚</span>스터디
+                    </label>
+                    <label class="interest-chip px-4 py-2 border-2 border-gray-200 rounded-full text-sm font-medium text-gray-600 transition-all duration-300 hover:border-peach/50 hover:bg-peach/10 hover:scale-105 cursor-pointer">
+                        <input type="checkbox" name="interests" value="독서" class="hidden interest-checkbox">
+                        <span class="mr-1">📖</span>독서
+                    </label>
+                    <label class="interest-chip px-4 py-2 border-2 border-gray-200 rounded-full text-sm font-medium text-gray-600 transition-all duration-300 hover:border-peach/50 hover:bg-peach/10 hover:scale-105 cursor-pointer">
+                        <input type="checkbox" name="interests" value="맛집" class="hidden interest-checkbox">
+                        <span class="mr-1">🍽️</span>맛집
+                    </label>
+                </div>
+            </div>
+
+            <!-- 버튼 영역 -->
+            <div class="flex gap-4">
+                <button type="submit" class="save-btn flex-1 py-4 px-6 bg-gradient-to-r from-peachDeep to-peach text-white font-bold rounded-2xl shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 hover:from-peachDeep/90 hover:to-peach/90">
+                    <span class="mr-2">✨</span>프로필 저장하기
+                </button>
+                <a href="{{ url_for('index') }}" class="delete-btn px-6 py-4 border-2 border-gray-300 text-gray-600 font-medium rounded-2xl hover:border-red-300 hover:text-red-500 hover:bg-red-50 transition-all duration-300 text-center flex items-center justify-center">
+                    <span class="mr-1">←</span>취소
+                </a>
+            </div>
+        </form>
+    </div>
+  </main>
+
+  <footer>
+    <div>
+      © <span id="year"></span> KBU hub · All rights reserved.
+    </div>
+  </footer>
+
+  <script>
+    // 성별 선택 함수
+    function selectGender(button) {
+        const allGenderBtns = document.querySelectorAll('.gender-btn');
+        allGenderBtns.forEach(btn => btn.classList.remove('active'));
+        button.classList.add('active');
+        
+        // hidden input에 선택된 성별 저장
+        document.getElementById('gender_input').value = button.dataset.gender;
+    }
+
+    // 선택된 관심사 개수 업데이트
+    function updateSelectedCount() {
+        const selectedCount = document.getElementById('selected-count');
+        if (selectedCount) {
+            const selected = document.querySelectorAll('.interest-checkbox:checked');
+            selectedCount.textContent = selected.length;
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function(){
+        // 년도 설정
+        document.getElementById('year').textContent = new Date().getFullYear();
+        
+        const form = document.getElementById('anon-form');
+        const bio = document.getElementById('ap_bio');
+        const count = document.getElementById('ap_count');
+        const nickname = document.getElementById('ap_nickname');
+        const nicknameCount = document.getElementById('ap_nickname_count');
+        
+        bio.addEventListener('input', ()=>{ count.textContent = bio.value.length; });
+        nickname.addEventListener('input', ()=>{ nicknameCount.textContent = nickname.value.length; });
+        
+        // 관심사 체크박스 변경 시 시각적 피드백
+        const checkboxes = document.querySelectorAll('.interest-checkbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                const label = this.closest('.interest-chip');
+                if (this.checked) {
+                    label.classList.add('selected');
+                } else {
+                    label.classList.remove('selected');
+                }
+                updateSelectedCount();
+            });
+        });
+
+        // 폼 제출 시 최소 1개 관심사 선택 검증
+        form.addEventListener('submit', (e)=>{
+            const selectedInterests = document.querySelectorAll('.interest-checkbox:checked');
+            
+            if (selectedInterests.length === 0) {
+                e.preventDefault();
+                alert('관심사를 최소 1개 이상 선택해주세요!');
+                return false;
+            }
+        });
+
+        // 모바일 메뉴는 navigation.js에서 처리됩니다
+    });
+  </script>
+  <script src="{{ url_for("static", filename="js/navigation.js") }}"></script>
+</body>
+</html>

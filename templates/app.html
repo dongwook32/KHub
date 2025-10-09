@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="ko" class="font-loading">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KBU hub | 대학생 익명 커뮤니티</title>
+  <link rel="icon" href="{{ url_for("static", filename="images/logo.png") }}">
+  
+  <!-- 폰트 로딩 최적화 (FOUT 방지) -->
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  
+  <!-- 시스템 폰트 fallback 우선 적용 (즉시 로드) -->
+  <style>
+    /* 초기 폰트 설정 - 시스템 폰트 우선 (FOUT 방지) */
+    html, body {
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+      font-display: swap;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: optimizeLegibility;
+    }
+    
+    /* 한국어 폰트 fallback */
+    .korean-text {
+      font-family: "Apple SD Gothic Neo", "Malgun Gothic", "맑은 고딕", ui-sans-serif, system-ui, -apple-system, sans-serif;
+      font-display: swap;
+    }
+    
+    /* 폰트 로딩 상태 관리 */
+    .font-loading { 
+      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; 
+    }
+    .font-loaded { 
+      font-family: "Pretendard", ui-sans-serif, system-ui, -apple-system, sans-serif; 
+    }
+  </style>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    // 전역 Tailwind 설정 - 모든 페이지에서 사용
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            'peach': '#FF9F7C',
+            'peachDeep': '#FF7B54',
+            'peachLight': '#FFC8B2',
+            'cream': '#FFF8F5',
+            'cocoa': '#8B4513',
+            'ink': '#2D3748',
+            'mint': '#B7F4E6',
+            'lemon': '#FFF3A3'
+          },
+          fontFamily: {
+            'sans': ['Pretendard', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'Noto Sans KR', 'sans-serif']
+          },
+          boxShadow: {
+            'soft': '0 10px 30px rgba(255,159,128,.18)',
+            'glow': '0 0 0 0 rgba(255,159,128,.0)',
+            'card': '0 10px 24px rgba(17,24,39,.08)'
+          },
+          borderRadius: {
+            'bubble': '999px',
+            'xl2': '1.25rem'
+          }
+        }
+      }
+    }
+  </script>
+  
+  <!-- 전역 스타일 (로딩 순서 중요) -->
+  <link rel="stylesheet" href="{{ url_for("static", filename="css/layout.css") }}">
+  <link rel="stylesheet" href="{{ url_for("static", filename="css/nav.css") }}">
+  <link rel="stylesheet" href="{{ url_for("static", filename="css/style.css") }}">
+  
+  <!-- Pretendard 폰트 비동기 로딩 (FOUT 방지) -->
+  <link rel="preload" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet"></noscript>
+  
+  <!-- 폰트 로딩 완료 후 클래스 추가 -->
+  <script>
+    // 폰트 로딩 상태 관리 (FOUT 방지)
+    document.documentElement.classList.add('font-loading');
+    
+    if ('fonts' in document) {
+      // Pretendard 폰트 로딩 시도
+      document.fonts.load('400 16px Pretendard').then(() => {
+        document.documentElement.classList.remove('font-loading');
+        document.documentElement.classList.add('font-loaded');
+        console.log('✅ Pretendard 폰트 로딩 완료');
+      }).catch(() => {
+        // 폰트 로딩 실패 시 시스템 폰트 유지
+        document.documentElement.classList.remove('font-loading');
+        console.log('⚠️ Pretendard 폰트 로딩 실패, 시스템 폰트 사용');
+      });
+      
+      // 모든 폰트 로딩 완료 대기
+      document.fonts.ready.then(() => { 
+        console.log('✅ 모든 폰트 로딩 완료'); 
+      });
+    } else {
+      // 폰트 API 미지원 시 시스템 폰트 사용
+      setTimeout(() => {
+        document.documentElement.classList.remove('font-loading');
+        console.log('⚠️ 폰트 API 미지원, 시스템 폰트 사용');
+      }, 100);
+    }
+  </script>
+  
+  <!-- 초기 스타일 (FOUC 방지) - 가장 먼저 로드 -->
+  <style>
+    /* 초기 로딩 상태 스타일 */
+    .font-loading {
+      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+    }
+    
+    /* === FOUC 방지: 초기 스타일 즉시 적용 === */
+    
+    /* 기본 레이아웃 */
+    html { 
+      font-size: 16px; 
+      line-height: 1.6; 
+      -webkit-text-size-adjust: 100%; 
+      -webkit-font-smoothing: antialiased; 
+      -moz-osx-font-smoothing: grayscale; 
+      text-rendering: optimizeLegibility; 
+    }
+    
+    body {
+      margin: 0;
+      padding: 0;
+      background: #FFF8F5;
+      color: #2D3748;
+      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+      overflow-x: hidden;
+      min-height: 100vh;
+    }
+    
+    /* 헤더 고정 (CLS 방지) */
+    .app-header {
+      height: 80px;
+      min-height: 80px;
+      max-height: 80px;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 9999;
+      background: linear-gradient(180deg, rgba(255,255,255,.8), rgba(255,255,255,.6));
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255, 200, 178, 0.4);
+      transform: translateZ(0);
+      backface-visibility: hidden;
+      will-change: auto;
+    }
+    
+    /* 네비게이션 크기 고정 - 즉시 적용 */
+    .nav-item {
+      min-height: 38px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      font-weight: 600;
+      padding: 10px 16px;
+      border-radius: 9999px;
+      color: #1F2937;
+      text-decoration: none;
+      transition: opacity 0.15s ease;
+    }
+    
+    .nav-item:hover {
+      opacity: 0.92;
+    }
+    
+    .nav-item.is-active {
+      background: #FF9F7C;
+      color: #FFFFFF;
+    }
+    
+    /* 로고 크기 고정 - 즉시 적용 */
+    .logo-img {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      object-fit: cover;
+      box-shadow: 0 8px 18px rgba(255,159,128,.25);
+    }
+    
+    /* 메인 콘텐츠 영역 (CLS 방지) */
+    .app-content {
+      margin-top: 80px;
+      min-height: calc(100vh - 80px);
+      position: relative;
+      z-index: 1;
+      transform: translateZ(0);
+      backface-visibility: hidden;
+      will-change: auto;
+    }
+    
+    /* 페이지 컨테이너 (CLS 방지) */
+    .page-container {
+      min-height: calc(100vh - 80px);
+      padding: 20px 0;
+    }
+    
+    /* 배경 고정 - 즉시 적용 */
+    .app-background {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: -10;
+      pointer-events: none;
+      background: radial-gradient(60% 60% at 0% 0%, #FFF0E7 0%, rgba(255,240,231,0) 60%), 
+                  radial-gradient(60% 60% at 100% 0%, #FFE7DB 0%, rgba(255,231,219,0) 60%);
+    }
+    
+    /* 푸터 고정 */
+    footer {
+      border-top: 1px solid rgba(255, 200, 178, 0.5);
+      background: rgba(255, 255, 255, 0.5);
+      backdrop-filter: blur(10px);
+      min-height: 60px;
+    }
+    
+    /* 콘텐츠 전환 애니메이션 */
+    .content-transition {
+      transition: opacity 0.15s ease, transform 0.15s ease;
+      will-change: opacity, transform;
+    }
+    .content-enter { 
+      opacity: 0; 
+      transform: translateY(10px); 
+    }
+    .content-enter-active { 
+      opacity: 1; 
+      transform: translateY(0); 
+    }
+    .content-exit { 
+      opacity: 1; 
+      transform: translateY(0); 
+    }
+    .content-exit-active { 
+      opacity: 0; 
+      transform: translateY(-10px); 
+    }
+    
+    /* 페이지 전환 상태 */
+    .page-transitioning .app-header { 
+      position: fixed; 
+      top: 0; 
+      left: 0; 
+      right: 0; 
+      z-index: 9999; 
+      transform: translateZ(0); 
+      backface-visibility: hidden; 
+    }
+    .page-transitioning { 
+      overflow: hidden; 
+      height: 100vh; 
+    }
+    
+    /* 모바일 반응형 - 즉시 적용 */
+    @media (max-width: 768px) {
+      .app-header {
+        height: 70px;
+        min-height: 70px;
+        max-height: 70px;
+      }
+      
+      .app-content {
+        margin-top: 70px;
+        min-height: calc(100vh - 70px);
+      }
+      
+      .nav-item {
+        font-size: 14px;
+        padding: 8px 12px;
+      }
+    }
+    
+    /* 로딩 스피너 - 즉시 적용 */
+    .loading-spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(255, 159, 124, 0.3);
+      border-top: 3px solid #FF9F7C;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    /* 이미지 CLS 방지 */
+    img { 
+      aspect-ratio: attr(width) / attr(height); 
+      max-width: 100%; 
+      height: auto; 
+    }
+    
+    /* 버튼 CLS 방지 */
+    .btn { 
+      min-height: 44px; 
+      display: inline-flex; 
+      align-items: center; 
+      justify-content: center; 
+    }
+    
+    /* 입력 필드 CLS 방지 */
+    .input { 
+      min-height: 44px; 
+      box-sizing: border-box; 
+    }
+  </style>
+</head>
+<body class="bg-cream text-ink">
+  <!-- 고정 배경 (언마운트 방지) -->
+  <div class="app-background"></div>
+  
+  <!-- 고정 헤더 (언마운트 방지) -->
+  <header class="app-header" data-component="header">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-4 h-full">
+      <!-- 로고 (SPA 라우터 사용) -->
+      <a href="../../../.." class="flex items-center gap-2 font-extrabold text-lg spa-link" data-route="/">
+        <img src="{{ url_for("static", filename="images/logo.png") }}" alt="KBU hub" class="logo-img" width="36" height="36">
+        <span>hub</span>
+      </a>
+      
+      <!-- 데스크톱 네비게이션 (고정) -->
+      <nav class="ml-auto hidden md:flex" data-component="desktop-nav">
+        <div id="navPill" class="nav-pill">
+          <!-- 네비게이션 아이템은 navigation.js에서 동적으로 생성됩니다 -->
+        </div>
+      </nav>
+      
+      <!-- 모바일 메뉴 버튼 (고정) -->
+      <button id="menuBtn" class="md:hidden ml-auto p-2 rounded-full border border-peach/60 hover:bg-peach/10 transition-colors">
+        <span class="sr-only">메뉴 열기</span>
+        ☰
+      </button>
+    </div>
+    
+    <!-- 모바일 네비게이션 (고정) -->
+    <div id="mobileNav" class="hidden md:hidden px-4 pb-3 border-t border-peach/40 bg-white/70" data-component="mobile-nav">
+      <div class="flex flex-col gap-1 py-2 text-sm">
+        <!-- 모바일 네비게이션 아이템은 navigation.js에서 동적으로 생성됩니다 -->
+      </div>
+    </div>
+  </header>
+  
+  <!-- 메인 콘텐츠 영역 (페이드 전환) -->
+  <main id="main-content" class="app-content content-transition">
+    <!-- 페이지별 콘텐츠가 여기에 로드됩니다 -->
+    <div class="page-container">
+      <div class="loading-spinner-container flex justify-center items-center min-h-[calc(100vh-80px)]">
+        <div class="loading-spinner"></div>
+      </div>
+    </div>
+  </main>
+  
+  <!-- 고정 푸터 -->
+  <footer class="border-t border-peach/50 bg-white/50 backdrop-blur-sm">
+    <div class="max-w-6xl mx-auto px-4 py-6">
+      <div class="text-center text-sm text-cocoa">
+        © <span id="year"></span> KBU hub · All rights reserved.
+      </div>
+    </div>
+  </footer>
+  
+  <!-- 로딩 오버레이 -->
+  <div id="loadingOverlay" class="loading-overlay">
+    <div class="loading-spinner"></div>
+  </div>
+  
+  <!-- 스크립트 로딩 (로딩 순서 중요) -->
+  <script src="{{ url_for("static", filename="js/preload.js") }}"></script>
+  <script src="{{ url_for("static", filename="js/navigation.js") }}"></script>
+  <script src="{{ url_for("static", filename="js/router.js") }}"></script>
+  
+  <!-- 초기화 스크립트 -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // 년도 설정
+      document.getElementById('year').textContent = new Date().getFullYear();
+      
+      // 네비게이션 초기화
+      if (window.NavigationManager) {
+        window.navigationManager = new NavigationManager();
+      }
+      
+      // SPA 라우터 초기화
+      if (window.spaRouter) {
+        console.log('🚀 SPA 라우터 초기화 완료');
+      }
+      
+      // 모바일 메뉴 토글
+      const menuBtn = document.getElementById('menuBtn');
+      const mobileNav = document.getElementById('mobileNav');
+      
+      if (menuBtn && mobileNav) {
+        menuBtn.addEventListener('click', () => {
+          mobileNav.classList.toggle('hidden');
+          console.log('📱 모바일 메뉴 토글');
+        });
+      }
+      
+      // 페이지 로드 이벤트 리스너
+      window.addEventListener('pageLoaded', (e) => {
+        console.log('📄 페이지 로드 완료:', e.detail);
+        
+        // 로딩 오버레이 숨기기
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        if (loadingOverlay) {
+          loadingOverlay.classList.remove('active');
+        }
+      });
+      
+      console.log('🎉 앱 초기화 완료');
+    });
+    
+    // 에러 핸들링
+    window.addEventListener('error', (e) => {
+      console.error('❌ 전역 에러:', e.error);
+    });
+    
+    window.addEventListener('unhandledrejection', (e) => {
+      console.error('❌ 처리되지 않은 Promise 거부:', e.reason);
+    });
+  </script>
+</body>
+</html>
