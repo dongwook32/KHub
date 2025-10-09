@@ -6,14 +6,17 @@ from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
-app.secret_key = 'a-very-secret-and-complex-key-change-it'
 
-# --- Database Configuration ---
+# ❗ 중요: 'change-me' 부분은 실제 서비스 시 아무도 모르는 복잡한 문자열로 꼭 바꾸세요!
+app.secret_key = 'a-very-secret-and-complex-key-change-it' 
+
+# --- 데이터베이스 설정 ---
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
+# ----------------------
 
-# --- Database Models ---
+# --- 데이터베이스 모델(테이블) 정의 ---
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     student_id = db.Column(db.String(80), unique=True, nullable=False)
@@ -33,8 +36,9 @@ class Post(db.Model):
     content = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+# ---------------------------------
 
-# --- Decorators ---
+# --- 로그인 확인 '문지기' 함수 (데코레이터) ---
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -43,16 +47,18 @@ def login_required(f):
             return redirect(url_for('login'))
         return f(*args, **kwargs)
     return decorated_function
+# ----------------------------------------
 
-# --- Main Routes ---
+# --- 메인 라우트 ---
 @app.route('/')
 def index():
     return render_template('index.html')
 
-# --- Authentication Routes ---
+# --- 인증 관련 라우트 ---
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
+        # (이전과 동일한 회원가입 로직)
         student_id = request.form.get('student_id')
         email = request.form.get('email')
         password = request.form.get('password')
@@ -61,6 +67,10 @@ def register():
         gender = request.form.get('gender')
         birthday_str = request.form.get('birthday')
         status = request.form.get('status')
+
+        if not all([student_id, email, password, password_confirm, name, gender, birthday_str, status]):
+            flash('모든 필수 항목을 입력해주세요.')
+            return redirect(url_for('register'))
 
         if password != password_confirm:
             flash('비밀번호가 일치하지 않습니다.')
@@ -74,19 +84,12 @@ def register():
             flash('이미 사용 중인 이메일입니다.')
             return redirect(url_for('register'))
 
-        # [수정] 잘못된 암호화 방식 오타 수정 (sha266 -> sha256)
         hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
-        
         birthday_obj = datetime.strptime(birthday_str, '%Y-%m-%d').date()
         
         new_user = User(
-            student_id=student_id, 
-            email=email, 
-            password=hashed_password,
-            name=name,
-            gender=gender,
-            birthday=birthday_obj,
-            status=status
+            student_id=student_id, email=email, password=hashed_password, 
+            name=name, gender=gender, birthday=birthday_obj, status=status
         )
         
         db.session.add(new_user)
@@ -117,17 +120,55 @@ def logout():
     flash("성공적으로 로그아웃되었습니다.")
     return redirect(url_for('index'))
 
-# --- User Profile & My Page Routes ---
+# --- 마이페이지 및 프로필 관련 라우트 ---
 @app.route('/mypage')
 @login_required
 def mypage():
     user = User.query.get_or_404(session['user_id'])
     return render_template('mypage.html', user=user)
 
-# (이하 edit_profile, change_password 등 모든 기능은 이전 답변과 동일)
-# ...
+@app.route('/edit-profile', methods=['POST'])
+@login_required
+def edit_profile():
+    user = User.query.get(session['user_id'])
+    user.nickname = request.form.get('nickname')
+    user.bio = request.form.get('bio')
+    db.session.commit()
+    flash('프로필이 성공적으로 수정되었습니다.')
+    return redirect(url_for('mypage'))
 
-# --- Board Routes ---
+@app.route('/change-password', methods=['POST'])
+@login_required
+def change_password():
+    user = User.query.get(session['user_id'])
+    current_password = request.form.get('current_password')
+    new_password = request.form.get('new_password')
+    confirm_password = request.form.get('confirm_password')
+
+    if not check_password_hash(user.password, current_password):
+        flash('현재 비밀번호가 일치하지 않습니다.')
+        return redirect(url_for('mypage'))
+    
+    if new_password != confirm_password:
+        flash('새 비밀번호가 일치하지 않습니다.')
+        return redirect(url_for('mypage'))
+    
+    user.password = generate_password_hash(new_password, method='pbkdf2:sha256')
+    db.session.commit()
+    flash('비밀번호가 성공적으로 변경되었습니다.')
+    return redirect(url_for('mypage'))
+
+@app.route('/delete-account', methods=['POST'])
+@login_required
+def delete_account():
+    user = User.query.get(session['user_id'])
+    db.session.delete(user)
+    db.session.commit()
+    session.clear()
+    flash('회원 탈퇴가 완료되었습니다.')
+    return redirect(url_for('index'))
+
+# --- 게시판 관련 라우트 ---
 @app.route('/boards')
 @login_required
 def boards():
@@ -151,44 +192,7 @@ def create_post():
         return redirect(url_for('boards'))
     return render_template('create_post.html')
 
-# --- 여기를 수정했습니다 ---
-@app.route('/mypage')
-@login_required
-def mypage():
-    # 세션에 저장된 user_id를 이용해 데이터베이스에서 현재 사용자 정보를 찾습니다.
-    user_id = session.get('user_id')
-    # .get()을 사용하면 혹시 모를 오류를 방지할 수 있습니다.
-    user = User.query.get(user_id) if user_id else None
-    
-    # 사용자 정보가 없으면 홈페이지로 보냅니다.
-    if user is None:
-        flash("사용자 정보를 찾을 수 없습니다. 다시 로그인해주세요.")
-        return redirect(url_for('login'))
-
-    # 찾은 사용자 정보를 'user'라는 변수 이름으로 mypage.html에 전달합니다.
-    return render_template('mypage.html', user=user)
-# -------------------------
-
-@app.route('/edit-profile', methods=['POST'])
-@login_required
-def edit_profile():
-    # 현재 로그인한 사용자 정보를 DB에서 찾기
-    user = User.query.get(session['user_id'])
-    
-    # 폼에서 수정된 데이터 가져오기
-    new_nickname = request.form.get('nickname')
-    new_bio = request.form.get('bio')
-    
-    # 가져온 데이터로 사용자 정보 업데이트
-    user.nickname = new_nickname
-    user.bio = new_bio
-    
-    # 변경사항을 DB에 최종 저장
-    db.session.commit()
-    
-    flash('프로필이 성공적으로 수정되었습니다.')
-    return redirect(url_for('mypage'))
-
+# --- 기타 페이지 라우트 ---
 @app.route('/chat')
 @login_required
 def chat():
@@ -206,10 +210,18 @@ def app_page():
 def profile_setup():
     if request.method == 'POST':
         session['anon_profile'] = {
-            'year': request.form.get('year'), 'gender': request.form.get('gender'),
+            'year': request.form.get('year'),
+            'gender': request.form.get('gender'),
             'nickname': request.form.get('nickname', '익명의친구'),
-            'bio': request.form.get('bio', ''), 'interests': request.form.getlist('interests')
+            'bio': request.form.get('bio', ''),
+            'interests': request.form.getlist('interests')
         }
         return redirect(url_for('chat'))
     return render_template('profile-setup.html')
+
+# 로컬에서 테스트할 때만 실행됩니다.
+if __name__ == '__main__':
+    with app.app_context():
+        db.create_all()
+    app.run(debug=True)
 
