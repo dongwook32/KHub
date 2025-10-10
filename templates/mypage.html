@@ -245,42 +245,49 @@
   </header>
 
   <main class="mx-auto max-w-6xl px-4 md:px-6 py-8 space-y-8" style="margin-top: 80px;">
-    <!-- 상단 히어로 섹션 -->
-    <div class="hero-summary">
-      <div class="hero-bg-blur hero-bg-blur-1"></div>
-      <div class="hero-bg-blur hero-bg-blur-2"></div>
-      <div class="hero-content">
+<!-- 상단 히어로 섹션 -->
+<div class="hero-summary">
+    <div class="hero-bg-blur hero-bg-blur-1"></div>
+    <div class="hero-bg-blur hero-bg-blur-2"></div>
+    <div class="hero-content">
         <div class="hero-avatar">
-          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-orange-400">
-            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
-            <circle cx="12" cy="7" r="4"/>
-          </svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-orange-400">
+                <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+            </svg>
         </div>
         <div class="hero-info">
-          <div class="hero-title">내 정보</div>
-          <div class="hero-name">
-            <span id="userName">정준영</span>
-          </div>
-          <div class="hero-details">
-            <span id="userDept">한국성서대</span>
-          </div>
-          <div class="hero-details">
-            <span id="userStudentId">2022</span>학번 · <span id="userStatus">재학생</span>
-          </div>
-          <div class="hero-intro" id="userIntro"></div>
+            <div class="hero-title">내 정보</div>
+            <div class="hero-name">
+                <!-- [수정] 닉네임이 있으면 닉네임을, 없으면 실명을 보여줍니다. -->
+                <span>{{ user.nickname or user.name }}</span>
+            </div>
+            <div class="hero-details">
+                <!-- 학교 이름은 고정값이므로 그대로 둡니다. -->
+                <span>한국성서대</span>
+            </div>
+            <div class="hero-details">
+                <!-- [수정] DB의 학번에서 앞 4자리(년도)만 잘라서 보여줍니다. -->
+                <span>{{ user.student_id[:4] }}</span>학번 · <span>{{ user.status }}</span>
+            </div>
+            <div class="hero-intro">
+                <!-- [수정] DB의 자기소개를 보여줍니다. 없으면 빈칸으로 표시됩니다. -->
+                {{ user.bio or '' }}
+            </div>
         </div>
         <div class="hero-actions">
-          <button class="btn btn-destructive" onclick="handleLogout()">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-              <polyline points="16 17 21 12 16 7"/>
-              <line x1="21" y1="12" x2="9" y2="12"/>
-            </svg>
-            로그아웃
-          </button>
+            <!-- [수정] JavaScript 함수 대신, 서버의 /logout 주소로 바로 연결되는 링크로 변경합니다. -->
+            <a href="{{ url_for('logout') }}" class="btn btn-destructive">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                    <polyline points="16 17 21 12 16 7"/>
+                    <line x1="21" y1="12" x2="9" y2="12"/>
+                </svg>
+                로그아웃
+            </a>
         </div>
-      </div>
     </div>
+</div>
 
     <!-- 섹션 1: 프로필 & 익명카드 -->
     <div class="section-card">
@@ -332,33 +339,34 @@
           비밀번호 변경
         </button>
       </div>
-      <div class="account-grid">
-        <div class="account-card">
-          <div class="account-label">이름</div>
-          <div class="account-value" id="accountName">정준영</div>
-        </div>
-        <div class="account-card">
-          <div class="account-label">학번</div>
-          <div class="account-value" id="accountStudentId">2022학번</div>
-        </div>
-        <div class="account-card">
-          <div class="account-label">생일</div>
-          <div class="account-value" id="accountBirthday">1999-01-01</div>
-        </div>
-        <div class="account-card">
-          <div class="account-label">성별</div>
-          <div class="account-value" id="accountGender">남자</div>
-        </div>
-        <div class="account-card">
-          <div class="account-label">재학 상태</div>
-          <div class="account-value" id="accountStatus">재학생</div>
-        </div>
-        <div class="account-card">
-          <div class="account-label">이메일</div>
-          <div class="account-value" id="accountEmail">user@bible.ac.kr</div>
-        </div>
-      </div>
+<div class="account-grid">
+    <div class="account-card">
+        <div class="account-label">이름/닉네임</div>
+        <!-- 닉네임이 있으면 닉네임을, 없으면 실명을 보여줍니다. -->
+        <div class="account-value">{{ user.nickname or user.name }}</div>
     </div>
+    <div class="account-card">
+        <div class="account-label">학번</div>
+        <div class="account-value">{{ user.student_id }}</div>
+    </div>
+    <div class="account-card">
+        <div class="account-label">생일</div>
+        <!-- 생일 정보가 있을 때만 날짜 형식으로 예쁘게 보여줍니다. -->
+        <div class="account-value">{% if user.birthday %}{{ user.birthday.strftime('%Y-%m-%d') }}{% else %}정보 없음{% endif %}</div>
+    </div>
+    <div class="account-card">
+        <div class="account-label">성별</div>
+        <div class="account-value">{{ user.gender }}</div>
+    </div>
+    <div class="account-card">
+        <div class="account-label">재학 상태</div>
+        <div class="account-value">{{ user.status }}</div>
+    </div>
+    <div class="account-card">
+        <div class="account-label">이메일</div>
+        <div class="account-value">{{ user.email }}</div>
+    </div>
+</div>
 
     <!-- 섹션 3: 내 활동 -->
     <div class="section-card">
