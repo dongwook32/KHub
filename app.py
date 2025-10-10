@@ -30,6 +30,20 @@ class User(db.Model):
     bio = db.Column(db.Text, nullable=True)
     posts = db.relationship('Post', backref='author', lazy=True, cascade="all, delete-orphan")
 
+        # User와 AnonProfile을 1대1 관계로 연결
+    anon_profile = db.relationship('AnonProfile', backref='user', uselist=False, cascade="all, delete-orphan")
+
+# [추가] 익명 프로필 테이블 모델
+class AnonProfile(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    nickname = db.Column(db.String(80), unique=True, nullable=False)
+    year = db.Column(db.String(20), nullable=False)
+    gender = db.Column(db.String(10), nullable=False)
+    bio = db.Column(db.Text, nullable=True)
+    interests = db.Column(db.Text, nullable=True) # JSON 문자열로 저장
+    # User 테이블과 연결하는 외래 키
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, unique=True)
+
 class Post(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(100), nullable=False)
@@ -133,7 +147,48 @@ def logout():
 @login_required
 def mypage():
     user = User.query.get_or_404(session['user_id'])
-    return render_template('mypage.html', user=user)
+    # mypage.html에 user 정보와 함께 anon_profile 정보도 전달
+    return render_template('mypage.html', user=user, anon_profile=user.anon_profile)
+
+# [추가] 익명 프로필 저장/수정 라우트
+@app.route('/save-anon-profile', methods=['POST'])
+@login_required
+def save_anon_profile():
+    user = User.query.get(session['user_id'])
+    
+    nickname = request.form.get('nickname')
+    year = request.form.get('year')
+    gender = request.form.get('gender')
+    bio = request.form.get('bio')
+    interests = request.form.getlist('interests') # 리스트로 받음
+
+    # 서버 측 유효성 검사
+    if not all([nickname, year, gender, interests]):
+        flash('닉네임, 학번, 성별, 관심사는 필수 항목입니다.')
+        return redirect(url_for('mypage'))
+
+    # [수정] 서버에서 직접 닉네임 중복 검사
+    existing_profile = AnonProfile.query.filter_by(nickname=nickname).first()
+    if existing_profile and existing_profile.user_id != user.id:
+        flash('이미 사용 중인 익명 닉네임입니다.')
+        return redirect(url_for('mypage'))
+
+    # 기존 프로필이 있으면 업데이트, 없으면 새로 생성
+    anon_profile = user.anon_profile
+    if not anon_profile:
+        anon_profile = AnonProfile(user_id=user.id)
+    
+    anon_profile.nickname = nickname
+    anon_profile.year = year
+    anon_profile.gender = gender
+    anon_profile.bio = bio
+    anon_profile.interests = json.dumps(interests) # 리스트를 JSON 문자열로 변환하여 저장
+    
+    db.session.add(anon_profile)
+    db.session.commit()
+    
+    flash('익명카드가 성공적으로 저장되었습니다.')
+    return redirect(url_for('mypage'))
 
 @app.route('/edit-profile', methods=['POST'])
 @login_required
