@@ -108,6 +108,17 @@
   border-bottom: none;
 }
 
+/* 접근 불가능한 학과 스타일 */
+.department-item.department-locked {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.department-item.department-locked .department-header {
+  cursor: not-allowed;
+  background-color: #F9FAFB;
+}
+
 .department-header {
   display: flex;
   align-items: center;

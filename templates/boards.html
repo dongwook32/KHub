@@ -12,7 +12,6 @@
   <link rel="stylesheet" href="{{ url_for("static", filename="css/boards.css") }}">
   <script>
     tailwind.config = {
-      darkMode: 'class',
       theme: {
         extend: {
           colors: { peach: '#FFC8B2', peachDeep: '#FF9F80', cream: '#FFF7F2', cocoa:'#6B7280', ink:'#1F2937', mint:'#B7F4E6', lemon:'#FFF3A3' },
@@ -164,6 +163,10 @@
             <option value="discussion">토론</option>
           </select>
           
+          <select id="postDepartment" name="department" style="display: none;">
+            <option value="">학과 선택</option>
+          </select>
+          
           <label class="anonymous-toggle">
             <input type="checkbox" id="postAnonymous" name="anonymous" />
             <span class="toggle-switch"></span>
@@ -221,6 +224,10 @@
     </div>
   </footer>
 
+  <script>
+    // Flask에서 전달받은 사용자 학과 정보
+    window.userDepartment = "{{ user_department }}";
+  </script>
   <script src="{{ url_for("static", filename="js/boards.js") }}"></script>
   <script src="{{ url_for("static", filename="js/navigation.js") }}"></script>
 </body>

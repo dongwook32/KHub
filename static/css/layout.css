@@ -348,16 +348,3 @@ img[src=""]:before, img:not([src]):before {
   backface-visibility: hidden;
   will-change: transform;
 }
-
-/* 다크모드 대응 (향후 확장용) */
-@media (prefers-color-scheme: dark) {
-  .app-header {
-    background: linear-gradient(180deg, rgba(0,0,0,.8), rgba(0,0,0,.6));
-    border-bottom-color: rgba(255, 200, 178, 0.2);
-  }
-  
-  .app-background {
-    background: radial-gradient(60% 60% at 0% 0%, rgba(0,0,0,0.1) 0%, transparent 60%), 
-                radial-gradient(60% 60% at 100% 0%, rgba(0,0,0,0.05) 0%, transparent 60%);
-  }
-}

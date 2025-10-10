@@ -11,7 +11,6 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/nav.css') }}">
   <script>
     tailwind.config = {
-      darkMode: 'class',
       theme: {
         extend: {
           colors: { peach: '#FFC8B2', peachDeep: '#FF9F80', cream: '#FFF7F2', cocoa:'#6B7280', ink:'#1F2937', mint:'#B7F4E6', lemon:'#FFF3A3' },
@@ -25,8 +24,29 @@
     html, body { font-family: Pretendard, system-ui, -apple-system, Segoe UI, Roboto, 'Noto Sans KR', sans-serif; }
     .top-grad{ background: radial-gradient(60% 60% at 0% 0%, #FFF0E7 0%, rgba(255,240,231,0) 60%), radial-gradient(60% 60% at 100% 0%, #FFE7DB 0%, rgba(255,231,219,0) 60%); }
     .glass{ background: rgba(255,255,255,.7); backdrop-filter: blur(10px); }
-    footer { border-top: 1px solid rgba(255, 200, 178, 0.5) !important; background-color: transparent !important; margin-top: 60px !important; }
-    footer div { max-width: 72rem !important; margin: 0 auto !important; padding: 1.5rem 1rem !important; font-size: 0.875rem !important; color: #6B7280 !important; text-align: center !important; }
+    /* 네비게이션 스타일은 nav.css (CSS Cascade Layers)에서 관리 */
+    
+    /* 헤더 스타일은 navigation.css에서 관리 */
+    
+    /* Footer 스타일 보완 */
+    .text-cocoa { color: #6B7280; }
+    .border-peach-50 { border-color: rgba(255, 200, 178, 0.5); }
+    
+    /* 강제 Footer 스타일 */
+    footer {
+        border-top: 1px solid rgba(255, 200, 178, 0.5) !important;
+        background-color: transparent !important;
+        margin-top: 60px !important;
+    }
+    
+    footer div {
+        max-width: 72rem !important;
+        margin: 0 auto !important;
+        padding: 1.5rem 1rem !important;
+        font-size: 0.875rem !important;
+        color: #6B7280 !important;
+        text-align: center !important;
+    }
   </style>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
@@ -34,47 +54,60 @@
   <div class="top-grad h-[160px] w-full absolute inset-0 -z-10 pointer-events-none"></div>
 
   <header class="fixed top-0 left-0 right-0 z-50 border-b border-peach/40 glass">
-    </header>
-
-  <main class="container" style="padding: 60px 0; max-width: 520px; margin-top: 80px;">
-    {% with messages = get_flashed_messages() %}
-      {% if messages %}
-        <div style="background-color: #FFF3A3; color: #6B7280; padding: 12px; border-radius: 10px; text-align: center; margin-bottom: 16px; font-weight: 600;">
-          {{ messages[0] }}
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-4">
+      <a href="{{ url_for('index') }}" class="flex items-center gap-2 font-extrabold text-lg">
+        <img src="{{ url_for('static', filename='images/logo.png') }}" alt="KBU hub" class="w-9 h-9 rounded-full shadow-[0_8px_18px_rgba(255,159,128,.25)]">
+        <span>hub</span>
+      </a>
+      <nav class="ml-auto hidden md:flex">
+        <div id="navPill" class="nav-pill">
+          <!-- 네비게이션 아이템은 navigation.js에서 동적으로 생성됩니다 -->
         </div>
-      {% endif %}
-    {% endwith %}
-    <h1 style="text-align:center; margin-bottom: 24px;">로그인</h1>
-    
-    <form id="login-form" action="{{ url_for('login') }}" method="POST" style="background:#fff; padding:24px; border-radius:12px; box-shadow:0 4px 20px rgba(0,0,0,0.05);">
-      <div style="margin-bottom:16px;">
-        <label for="studentId" style="display:block; font-weight:600; margin-bottom:8px;">아이디(학번)</label>
-        <input id="studentId" name="studentId" type="text" placeholder="예: 20250001" style="width:100%; padding:12px 14px; border:1px solid #eee; border-radius:10px;">
+      </nav>
+      <button id="menuBtn" class="md:hidden ml-auto p-2 rounded-full border border-peach/60">☰</button>
+    </div>
+    <div id="mobileNav" class="hidden md:hidden px-4 pb-3 border-t border-peach/40 bg-white/70">
+      <div class="flex flex-col gap-1 py-2 text-sm">
+        <!-- 모바일 네비게이션 아이템은 navigation.js에서 동적으로 생성됩니다 -->
       </div>
-      <div style="margin-bottom:16px;">
-        <label for="password" style="display:block; font-weight:600; margin-bottom:8px;">비밀번호</label>
-        <input id="password" name="password" type="password" placeholder="비밀번호" style="width:100%; padding:12px 14px; border:1px solid #eee; border-radius:10px;">
-      </div>
-      <button type="submit" class="btn btn-primary" style="width:100%;">로그인</button>
-      <div style="text-align:center; margin-top:12px;">
-      <a href="{{ url_for('register') }}" style="text-decoration:none; color: var(--primary-color); font-weight:600;">아직 계정이 없나요? 회원가입</a>
-      </div>
-    </form>
-  </main>
+    </div>
+  </header>
 
-  <footer>
-    <div>© <span id="year"></span> KBU hub · All rights reserved.</div>
-  </footer>
+    <main class="container" style="padding: 60px 0; max-width: 520px; margin-top: 80px;">
+        <h1 style="text-align:center; margin-bottom: 24px;">로그인</h1>
+        <form id="login-form" method="POST" action="{{ url_for('login_post') }}" style="background:#fff; padding:24px; border-radius:12px; box-shadow:0 4px 20px rgba(0,0,0,0.05);">
+            <div style="margin-bottom:16px;">
+                <label for="studentId" style="display:block; font-weight:600; margin-bottom:8px;">아이디(학번)</label>
+                <input id="studentId" name="studentId" type="text" placeholder="예: 20220401" required style="width:100%; padding:12px 14px; border:1px solid #eee; border-radius:10px;">
+            </div>
+            <div style="margin-bottom:16px;">
+                <label for="password" style="display:block; font-weight:600; margin-bottom:8px;">비밀번호</label>
+                <input id="password" name="password" type="password" placeholder="비밀번호" required style="width:100%; padding:12px 14px; border:1px solid #eee; border-radius:10px;">
+            </div>
+            <button type="submit" class="btn btn-primary" style="width:100%;">로그인</button>
+            <div style="text-align:center; margin-top:12px;">
+                <a href="{{ url_for('register') }}" style="text-decoration:none; color: var(--primary-color); font-weight:600;">아직 계정이 없나요? 회원가입</a>
+            </div>
+        </form>
+    </main>
 
-  <script>
-    // 년도 설정은 유지
-    document.getElementById('year').textContent = new Date().getFullYear();
+    <footer>
+        <div>
+            © <span id="year"></span> KBU hub · All rights reserved.
+        </div>
+    </footer>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function(){
+        // 년도 설정
+        document.getElementById('year').textContent = new Date().getFullYear();
+    });
     
-    // ======================= 기존 JavaScript 로그인 로직 (삭제) =======================
-    // form의 action과 method를 통해 서버로 데이터를 보내 처리하므로 이 부분은 삭제합니다.
-    // ==============================================================================
-  </script>
-  <script src="{{ url_for('static', filename='js/navigation.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    // 모바일 메뉴는 navigation.js에서 처리됩니다
+    </script>
+    <script src="{{ url_for('static', filename='js/navigation.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
 </body>
 </html>
+
+

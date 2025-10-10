@@ -1,11 +1,34 @@
 // KBU Hub 게시판 JavaScript
 
 // ===== 전역 변수 =====
-let currentBoard = 'ai_free'; // 기본값을 AI융합학부 자유게시판으로 설정
-let currentDepartment = 'ai';
+let currentBoard = 'free_board'; // 기본값을 자유게시판으로 설정
+let currentDepartment = 'free';
 let posts = [];
 let comments = [];
-let expandedDepartments = {}; // 모든 학과는 기본으로 닫힌 상태
+let expandedDepartments = { 'free': true }; // 자유게시판은 기본으로 열린 상태
+
+// ===== 접근 권한 관리 =====
+// 사용자 학과 정보 (Flask에서 전달받음)
+const userDepartment = window.userDepartment || 'free';
+
+// 학과별 접근 가능한 게시판 매핑
+function getAccessibleDepartments(userDept) {
+  // 모든 사용자는 자유게시판 접근 가능
+  const accessible = ['free'];
+  
+  // 본인 학과 추가
+  if (userDept && userDept !== 'free' && userDept !== 'unknown') {
+    accessible.push(userDept);
+  }
+  
+  return accessible;
+}
+
+// 게시판 접근 권한 체크
+function canAccessDepartment(departmentId) {
+  const accessible = getAccessibleDepartments(userDepartment);
+  return accessible.includes(departmentId);
+}
 
 // ===== 익명 번호 관리 =====
 let anonymousCounter = 1;
@@ -142,6 +165,17 @@ function getYearDisplay(year) {
 // ===== 학과 및 게시판 정보 =====
 const departments = [
   { 
+    id: 'free', 
+    name: '자유게시판', 
+    icon: '💬',
+    iconText: '[자유]',
+    boards: [
+      { id: 'free_board', name: '전체 자유게시판' },
+      { id: 'free_study', name: '학업게시판' },
+      { id: 'free_market', name: '장터게시판' }
+    ]
+  },
+  { 
     id: 'ai', 
     name: 'AI융합학부', 
     icon: '🤖',
@@ -205,6 +239,166 @@ const departments = [
 
 // ===== 목업 데이터 =====
 const mockPosts = [
+  // 자유게시판 - 전체
+  {
+    id: 'pf1',
+    title: '학교 축제 준비 어떻게 되고 있나요?',
+    author: '익명' + generateAnonymousId(),
+    year: 24,
+    createdAt: new Date(Date.now() - 3600000).toISOString(),
+    views: 89,
+    likes: 12,
+    comments: 5,
+    tags: ['축제', '학교생활'],
+    boardId: 'free_board',
+    departmentId: 'free',
+    type: 'question'
+  },
+  {
+    id: 'pf2',
+    title: '오늘 학식 메뉴 추천해주세요!',
+    author: '익명' + generateAnonymousId(),
+    year: 22,
+    createdAt: new Date(Date.now() - 7200000).toISOString(),
+    views: 134,
+    likes: 8,
+    comments: 12,
+    tags: ['학식', '추천'],
+    boardId: 'free_board',
+    departmentId: 'free',
+    type: 'talk'
+  },
+  {
+    id: 'pf3',
+    title: '도서관 스터디룸 예약 팁 공유합니다',
+    author: '익명' + generateAnonymousId(),
+    year: 21,
+    createdAt: new Date(Date.now() - 172800000).toISOString(),
+    views: 267,
+    likes: 23,
+    comments: 15,
+    tags: ['도서관', '스터디', '팁'],
+    boardId: 'free_board',
+    departmentId: 'free',
+    type: 'share'
+  },
+  {
+    id: 'pf4',
+    title: '학교 근처 카페 추천 받습니다',
+    author: '익명' + generateAnonymousId(),
+    year: 23,
+    createdAt: new Date(Date.now() - 259200000).toISOString(),
+    views: 178,
+    likes: 16,
+    comments: 20,
+    tags: ['카페', '맛집', '추천'],
+    boardId: 'free_board',
+    departmentId: 'free',
+    type: 'question'
+  },
+  {
+    id: 'pf5',
+    title: '이번 학기 과목 꿀조합 공유',
+    author: '익명' + generateAnonymousId(),
+    year: 24,
+    createdAt: new Date(Date.now() - 345600000).toISOString(),
+    views: 345,
+    likes: 45,
+    comments: 28,
+    tags: ['수강신청', '꿀조합'],
+    boardId: 'free_board',
+    departmentId: 'free',
+    type: 'share'
+  },
+  
+  // 자유게시판 - 학업게시판
+  {
+    id: 'pfs1',
+    title: '중간고사 준비 스터디 모집합니다',
+    author: '익명' + generateAnonymousId(),
+    year: 23,
+    createdAt: new Date(Date.now() - 43200000).toISOString(),
+    views: 145,
+    likes: 18,
+    comments: 9,
+    tags: ['스터디', '중간고사'],
+    boardId: 'free_study',
+    departmentId: 'free',
+    type: 'question'
+  },
+  {
+    id: 'pfs2',
+    title: '전공 선택 고민 상담해주세요',
+    author: '익명' + generateAnonymousId(),
+    year: 24,
+    createdAt: new Date(Date.now() - 129600000).toISOString(),
+    views: 98,
+    likes: 12,
+    comments: 16,
+    tags: ['전공', '상담'],
+    boardId: 'free_study',
+    departmentId: 'free',
+    type: 'question'
+  },
+  {
+    id: 'pfs3',
+    title: '효과적인 과제 관리 방법 공유',
+    author: '익명' + generateAnonymousId(),
+    year: 21,
+    createdAt: new Date(Date.now() - 216000000).toISOString(),
+    views: 234,
+    likes: 34,
+    comments: 21,
+    tags: ['과제', '노하우'],
+    boardId: 'free_study',
+    departmentId: 'free',
+    type: 'share'
+  },
+  
+  // 자유게시판 - 장터게시판
+  {
+    id: 'pfm1',
+    title: '전공 교재 판매합니다 (거의 새 책)',
+    author: '익명' + generateAnonymousId(),
+    year: 22,
+    createdAt: new Date(Date.now() - 86400000).toISOString(),
+    views: 67,
+    likes: 5,
+    comments: 8,
+    tags: ['교재', '판매'],
+    boardId: 'free_market',
+    departmentId: 'free',
+    type: 'talk'
+  },
+  {
+    id: 'pfm2',
+    title: '아이패드 에어 5세대 싸게 팝니다',
+    author: '익명' + generateAnonymousId(),
+    year: 23,
+    createdAt: new Date(Date.now() - 172800000).toISOString(),
+    views: 189,
+    likes: 14,
+    comments: 23,
+    tags: ['아이패드', '중고'],
+    boardId: 'free_market',
+    departmentId: 'free',
+    type: 'talk'
+  },
+  {
+    id: 'pfm3',
+    title: '기숙사용 미니 냉장고 구매합니다',
+    author: '익명' + generateAnonymousId(),
+    year: 24,
+    createdAt: new Date(Date.now() - 259200000).toISOString(),
+    views: 45,
+    likes: 3,
+    comments: 5,
+    tags: ['냉장고', '구매'],
+    boardId: 'free_market',
+    departmentId: 'free',
+    type: 'question'
+  },
+  
   // AI융합학부 - 자유게시판
   {
     id: 'p1',
@@ -599,6 +793,89 @@ const mockPosts = [
 ];
 
 const mockComments = [
+  // 자유게시판 댓글
+  {
+    id: 'cf1',
+    postId: 'pf1',
+    author: '익명' + generateAnonymousId(),
+    year: 23,
+    createdAt: new Date().toISOString(),
+    content: '축제준비위원회에서 열심히 준비 중이에요! 기대해주세요~',
+    isAnonymous: false,
+    likes: 5
+  },
+  {
+    id: 'cf2',
+    postId: 'pf1',
+    author: '익명' + generateAnonymousId(),
+    year: 24,
+    createdAt: new Date().toISOString(),
+    content: '올해는 공연 라인업이 기대됩니다 ㅎㅎ',
+    isAnonymous: false,
+    likes: 3
+  },
+  {
+    id: 'cf3',
+    postId: 'pf2',
+    author: '익명' + generateAnonymousId(),
+    year: 22,
+    createdAt: new Date().toISOString(),
+    content: '오늘 치킨마요덮밥 맛있던데요!',
+    isAnonymous: false,
+    likes: 7
+  },
+  {
+    id: 'cf4',
+    postId: 'pf3',
+    author: '익명' + generateAnonymousId(),
+    year: 21,
+    createdAt: new Date().toISOString(),
+    content: '꿀팁 감사합니다! 덕분에 예약 성공했어요',
+    isAnonymous: false,
+    likes: 8
+  },
+  // 자유게시판 - 학업게시판 댓글
+  {
+    id: 'cfs1',
+    postId: 'pfs1',
+    author: '익명' + generateAnonymousId(),
+    year: 22,
+    createdAt: new Date().toISOString(),
+    content: '저도 참여하고 싶어요! 연락 방법 알려주세요',
+    isAnonymous: false,
+    likes: 4
+  },
+  {
+    id: 'cfs2',
+    postId: 'pfs2',
+    author: '익명' + generateAnonymousId(),
+    year: 21,
+    createdAt: new Date().toISOString(),
+    content: '전공은 본인이 좋아하는 분야로 선택하는 게 좋아요',
+    isAnonymous: false,
+    likes: 6
+  },
+  // 자유게시판 - 장터게시판 댓글
+  {
+    id: 'cfm1',
+    postId: 'pfm1',
+    author: '익명' + generateAnonymousId(),
+    year: 24,
+    createdAt: new Date().toISOString(),
+    content: '가격이 얼마인가요?',
+    isAnonymous: false,
+    likes: 2
+  },
+  {
+    id: 'cfm2',
+    postId: 'pfm2',
+    author: '익명' + generateAnonymousId(),
+    year: 23,
+    createdAt: new Date().toISOString(),
+    content: '아직 판매 가능한가요? 연락 부탁드려요',
+    isAnonymous: false,
+    likes: 1
+  },
   {
     id: 'c1',
     postId: 'p1',
@@ -640,18 +917,28 @@ function formatTime(isoString) {
 
 // ===== 게시판 전환 =====
 function switchBoard(boardId) {
+  // 해당 게시판이 속한 학과 찾기
+  const department = departments.find(dept => 
+    dept.boards.some(board => board.id === boardId)
+  );
+  
+  // 접근 권한 체크
+  if (department && !canAccessDepartment(department.id)) {
+    alert('본인 학과가 아닙니다. 접근이 불가능합니다.');
+    return;
+  }
+  
   currentBoard = boardId;
   
   // 활성 게시판 업데이트
   document.querySelectorAll('.board-item').forEach(item => {
     item.classList.remove('active');
   });
-  document.querySelector(`[data-board-id="${boardId}"]`).classList.add('active');
+  const boardElement = document.querySelector(`[data-board-id="${boardId}"]`);
+  if (boardElement) {
+    boardElement.classList.add('active');
+  }
   
-  // 해당 학과 찾기
-  const department = departments.find(dept => 
-    dept.boards.some(board => board.id === boardId)
-  );
   if (department) {
     currentDepartment = department.id;
     
@@ -692,13 +979,17 @@ function toggleDepartment(departmentId) {
 function renderDepartmentTree() {
   const treeContainer = document.getElementById('departmentTree');
   
-  treeContainer.innerHTML = departments.map(department => `
-    <div class="department-item">
-      <div class="department-header" onclick="toggleDepartment('${department.id}')">
+  treeContainer.innerHTML = departments.map(department => {
+    const hasAccess = canAccessDepartment(department.id);
+    
+    return `
+    <div class="department-item ${!hasAccess ? 'department-locked' : ''}">
+      <div class="department-header" onclick="${hasAccess ? `toggleDepartment('${department.id}')` : `alert('본인 학과가 아닙니다. 접근이 불가능합니다.')`}">
         <span class="department-name">
           <span class="department-icon">${department.icon}</span>
           <span class="department-icon-text">${department.iconText}</span>
           ${department.name}
+          ${!hasAccess ? '<span style="margin-left:8px;font-size:0.75rem;opacity:0.5;">🔒</span>' : ''}
         </span>
         <svg class="department-arrow ${expandedDepartments[department.id] ? 'expanded' : ''}" 
              fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -715,7 +1006,8 @@ function renderDepartmentTree() {
         `).join('')}
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 // ===== 게시글 필터링 및 표시 =====
