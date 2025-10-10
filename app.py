@@ -49,6 +49,14 @@ def login_required(f):
     return decorated_function
 # ----------------------------------------
 
+# --- 🔑 임시: DB 테이블 생성을 위한 비밀 주소 ---
+@app.route('/init-db-super-secret-key-12345')
+def init_db():
+    with app.app_context():
+        db.create_all()
+    return "데이터베이스 테이블이 최신 상태로 업데이트 되었습니다!"
+# ----------------------------------------------------
+
 # --- 메인 라우트 ---
 @app.route('/')
 def index():
