@@ -214,7 +214,18 @@ def mypage():
         flash('로그인이 필요합니다.', 'error')
         return redirect(url_for('login'))
     
-    return render_template('mypage.html')
+    # 현재 사용자의 익명 프로필 가져오기
+    current_user = session.get('user', {})
+    student_id = current_user.get('student_id')
+    
+    anon_profile = {}
+    if student_id:
+        all_profiles = load_anon_profiles()
+        user_profile = next((p for p in all_profiles if p.get('student_id') == student_id), None)
+        if user_profile:
+            anon_profile = user_profile
+    
+    return render_template('mypage.html', anon_profile=anon_profile)
 
 @app.route('/chat')
 def chat():

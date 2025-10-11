@@ -1297,8 +1297,8 @@
             <div class="my-profile-avatar" id="myProfileAvatar">👤</div>
             <div class="my-profile-info">
               <div class="my-profile-name" id="myProfileName">익명 프로필</div>
-              <div class="my-profile-details" id="myProfileDetails">23학번 · 남자</div>
-              <div class="my-profile-bio" id="myProfileBio">새로운 친구를 만나고 싶어요!</div>
+              <div class="my-profile-details" id="myProfileDetails">프로필 미설정</div>
+              <div class="my-profile-bio" id="myProfileBio"></div>
                             </div>
             <div class="my-profile-actions">
               <button class="my-profile-edit-btn" onclick="window.location.href='{{ url_for('profile_setup') }}'">수정</button>
@@ -1499,7 +1499,7 @@
           // 기본값 설정
           document.getElementById('myProfileName').textContent = '익명 프로필';
           document.getElementById('myProfileDetails').textContent = '프로필 미설정';
-          document.getElementById('myProfileBio').textContent = '익명카드를 설정해주세요.';
+          document.getElementById('myProfileBio').textContent = '';
           
           // 관심사 목록 업데이트
           updateInterestList([]);
@@ -2839,6 +2839,15 @@
           closeProfileDetailModal();
         }
       });
+      
+      // 서버에서 받은 프로필이 있으면 localStorage에 저장
+      {% if anon_profile %}
+      const serverProfile = {{ anon_profile|tojson }};
+      if (serverProfile && Object.keys(serverProfile).length > 0) {
+        localStorage.setItem('anonProfile', JSON.stringify(serverProfile));
+        console.log('서버 프로필을 localStorage에 저장:', serverProfile);
+      }
+      {% endif %}
       
       loadAnonProfile();
       

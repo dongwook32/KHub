@@ -754,7 +754,14 @@
         }
       }
       
-      const anonProfile = { nickname, year, gender, bio, interests };
+      const anonProfile = { 
+        nickname, 
+        year, 
+        gender, 
+        bio, 
+        interests,
+        avatar: nickname[0] || '익'
+      };
       
       try {
         // 서버에 익명 프로필 저장
@@ -1289,6 +1296,15 @@
         console.log('로그인 사용자 정보가 localStorage에 저장되었습니다:', sessionUser);
       } catch (e) {
         console.error('사용자 정보 localStorage 저장 실패:', e);
+      }
+      {% endif %}
+      
+      // 서버에서 받은 익명 프로필이 있으면 localStorage에 저장
+      {% if anon_profile %}
+      const serverAnonProfile = {{ anon_profile|tojson }};
+      if (serverAnonProfile && Object.keys(serverAnonProfile).length > 0) {
+        localStorage.setItem('anonProfile', JSON.stringify(serverAnonProfile));
+        console.log('서버 익명 프로필을 localStorage에 저장:', serverAnonProfile);
       }
       {% endif %}
       

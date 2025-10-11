@@ -1259,15 +1259,9 @@ async function deletePost(postId) {
     const result = await response.json();
     
     if (result.success) {
-      // 게시글 삭제
-      const deletedPost = posts.splice(postIndex, 1)[0];
-      
-      // 해당 게시글의 댓글들도 삭제
-      comments = comments.filter(c => c.postId !== postId);
-      
-      // localStorage에 게시글 저장
-      savePostsToLocalStorage();
-      saveCommentsToLocalStorage();
+      // 서버에서 게시글과 댓글 다시 로드
+      posts = await loadPostsFromServer();
+      comments = await loadCommentsFromServer();
       
       // localStorage에서 삭제 (마이페이지 활동 기록)
       const currentUser = localStorage.getItem('currentUser');
@@ -1310,6 +1304,10 @@ function renderPostDetail(post, postComments) {
   // 학과 정보 가져오기
   const department = departments.find(d => d.id === post.departmentId);
   
+  // 현재 사용자가 작성자인지 확인
+  const userProfile = JSON.parse(localStorage.getItem('userProfile') || 'null');
+  const isAuthor = userProfile && post.authorStudentId && userProfile.studentId === post.authorStudentId;
+  
   detailView.innerHTML = `
     <button class="detail-back-btn" onclick="backToList()">
       <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1329,12 +1327,14 @@ function renderPostDetail(post, postComments) {
       
       <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;">
         <h1 class="detail-title" style="flex: 1; margin: 0;">${post.title}</h1>
+        ${isAuthor ? `
         <button onclick="deletePost('${post.id}')" style="padding: 8px 16px; background: #ef4444; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; white-space: nowrap; transition: all 0.3s ease;" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">
           <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display: inline-block; vertical-align: middle; margin-right: 4px;">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
           </svg>
           삭제
         </button>
+        ` : ''}
       </div>
       
       <div class="detail-meta">${post.author} · ${getYearDisplay(post.year, post.status)} · ${formatTime(post.createdAt)}</div>
@@ -1362,12 +1362,7 @@ function renderPostDetail(post, postComments) {
       </div>
       
       <div class="detail-body">
-        <p>본 시안은 선후배가 편하게 소통하도록 구성한 게시판 상세 화면입니다. 불필요한 요소는 숨기고 <strong>읽기와 답변</strong>에 집중했어요.</p>
-        <ul>
-          <li>@멘션과 #태그 입력 안내를 에디터 placeholder로 제공합니다.</li>
-          <li>익명 토글로 편안하게 질문/답변을 남길 수 있습니다.</li>
-        </ul>
-        <p>실제 게시글 내용이 여기에 표시됩니다. 사용자가 작성한 본문 내용이 들어갈 예정입니다.</p>
+        ${post.content ? post.content.split('\n').map(line => `<p>${line || '&nbsp;'}</p>`).join('') : '<p>내용이 없습니다.</p>'}
       </div>
       
       <div class="detail-comments-section">
@@ -1486,10 +1481,8 @@ async function submitDetailComment(event, postId) {
     const result = await response.json();
     
     if (result.success) {
-      comments.push(newComment);
-      
-      // localStorage에 댓글 저장 (백업)
-      saveCommentsToLocalStorage();
+      // 서버에서 게시글과 댓글 다시 로드
+      comments = await loadCommentsFromServer();
       
       // 해당 게시글의 댓글 수 증가
       const post = posts.find(p => p.id === postId);
@@ -1508,9 +1501,6 @@ async function submitDetailComment(event, postId) {
         } catch (error) {
           console.error('게시글 댓글 수 업데이트 오류:', error);
         }
-        
-        // 게시글 정보도 저장 (로컬)
-        savePostsToLocalStorage();
       }
       
       // 마이페이지 활동 기록에 추가
@@ -1555,15 +1545,9 @@ async function submitDetailComment(event, postId) {
 
 // ===== 댓글 저장/로드 함수 =====
 function saveCommentsToLocalStorage() {
-  try {
-    // mockComments 제외하고 사용자가 작성한 댓글만 저장
-    const mockCommentIds = mockComments.map(c => c.id);
-    const userComments = comments.filter(comment => !mockCommentIds.includes(comment.id));
-    localStorage.setItem('boardComments', JSON.stringify(userComments));
-    console.log('댓글 저장됨:', userComments.length + '개');
-  } catch (e) {
-    console.error('댓글 저장 실패:', e);
-  }
+  // 서버 기반으로 변경되어 localStorage 저장 비활성화
+  // 댓글은 서버에만 저장됩니다
+  console.log('댓글은 서버에 저장됩니다.');
 }
 
 async function loadCommentsFromServer() {
@@ -1720,11 +1704,15 @@ async function submitPost(event) {
     statusDisplay = null; // 익명일 때는 상태 표시 안함
   }
   
+  // 현재 사용자의 학번 (작성자 확인용)
+  const currentUserStudentId = userProfile ? userProfile.studentId : null;
+  
   const newPost = {
     id: 'p' + Date.now(),
     title: title,
     content: content, // 내용도 저장
     author: '익명' + generateAnonymousId(),
+    authorStudentId: currentUserStudentId, // 작성자 학번 저장
     year: yearDisplay ? parseInt(yearDisplay) : null,
     status: statusDisplay,
     createdAt: new Date().toISOString(),
@@ -1751,10 +1739,8 @@ async function submitPost(event) {
     const result = await response.json();
     
     if (result.success) {
-      posts.unshift(newPost);
-      
-      // localStorage에도 저장 (백업)
-      savePostsToLocalStorage();
+      // 서버에서 게시글 다시 로드
+      posts = await loadPostsFromServer();
       
       // 마이페이지 활동 기록에 추가
       const currentUser = localStorage.getItem('currentUser');
@@ -1793,17 +1779,9 @@ async function submitPost(event) {
 
 // ===== 게시글 저장/로드 함수 =====
 function savePostsToLocalStorage() {
-  try {
-    // mockPosts 제외하고 사용자가 작성한 게시글만 저장
-    // mockPosts의 ID는 'pf1', 'pa1' 등 짧은 형태
-    // 사용자 게시글 ID는 'p' + Date.now()로 긴 형태 (예: p1728123456789)
-    const mockPostIds = mockPosts.map(p => p.id);
-    const userPosts = posts.filter(post => !mockPostIds.includes(post.id));
-    localStorage.setItem('boardPosts', JSON.stringify(userPosts));
-    console.log('게시글 저장됨:', userPosts.length + '개');
-  } catch (e) {
-    console.error('게시글 저장 실패:', e);
-  }
+  // 서버 기반으로 변경되어 localStorage 저장 비활성화
+  // 게시글은 서버에만 저장됩니다
+  console.log('게시글은 서버에 저장됩니다.');
 }
 
 async function loadPostsFromServer() {

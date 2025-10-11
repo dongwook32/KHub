@@ -473,6 +473,17 @@
                 }
             }
             
+            // localStorage에 프로필 저장
+            const profileData = {
+                year: document.getElementById('ap_year').value,
+                gender: document.getElementById('gender_input').value,
+                nickname: nickname.value.trim() || '익명의친구',
+                bio: bio.value.trim(),
+                interests: Array.from(selectedInterests).map(cb => cb.value),
+                avatar: (nickname.value.trim() || '익명의친구')[0]
+            };
+            localStorage.setItem('anonProfile', JSON.stringify(profileData));
+            
             // 검증 통과 - 폼 제출
             form.submit();
         });
