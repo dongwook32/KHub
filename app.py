@@ -1,6 +1,8 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 import json
 import os
+import time
+from datetime import datetime
 
 app = Flask(__name__)
 app.secret_key = 'change-me'
@@ -10,6 +12,7 @@ DATA_FILE = 'registered_users.json'
 ANON_PROFILES_FILE = 'anon_profiles.json'
 BOARD_POSTS_FILE = 'board_posts.json'
 BOARD_COMMENTS_FILE = 'board_comments.json'
+CHAT_MESSAGES_FILE = 'chat_messages.json'
 
 def load_users():
     """등록된 사용자 정보 불러오기"""
@@ -88,6 +91,25 @@ def save_board_comments(comments):
     try:
         with open(BOARD_COMMENTS_FILE, 'w', encoding='utf-8') as f:
             json.dump(comments, f, ensure_ascii=False, indent=2)
+        return True
+    except:
+        return False
+
+def load_chat_messages():
+    """채팅 메시지 불러오기"""
+    if os.path.exists(CHAT_MESSAGES_FILE):
+        try:
+            with open(CHAT_MESSAGES_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except:
+            return {}
+    return {}
+
+def save_chat_messages(messages):
+    """채팅 메시지 저장하기"""
+    try:
+        with open(CHAT_MESSAGES_FILE, 'w', encoding='utf-8') as f:
+            json.dump(messages, f, ensure_ascii=False, indent=2)
         return True
     except:
         return False
@@ -455,9 +477,15 @@ def create_board_post():
         return jsonify({'success': False, 'message': '로그인이 필요합니다.'}), 401
     
     data = request.get_json()
+    post_id = data.get('id')
     
     # 게시글 데이터 로드
     posts = load_board_posts()
+    
+    # 중복 게시글 확인 (같은 ID가 이미 있으면 추가하지 않음)
+    existing_post = next((p for p in posts if p.get('id') == post_id), None)
+    if existing_post:
+        return jsonify({'success': True, 'message': '게시글이 이미 존재합니다.', 'post': existing_post})
     
     # 새 게시글 추가
     posts.append(data)
@@ -601,6 +629,60 @@ def toggle_comment_like(comment_id):
         return jsonify({'success': False, 'message': '좋아요 저장 중 오류가 발생했습니다.'}), 500
     
     return jsonify({'success': True, 'likes': comment['likes']})
+
+@app.route('/api/chat/messages/<room_id>', methods=['GET'])
+def get_chat_messages(room_id):
+    """채팅방 메시지 조회"""
+    # 로그인 체크
+    if 'user' not in session or not session.get('user'):
+        return jsonify({'success': False, 'message': '로그인이 필요합니다.'}), 401
+    
+    all_messages = load_chat_messages()
+    room_messages = all_messages.get(room_id, [])
+    
+    return jsonify({'success': True, 'messages': room_messages})
+
+@app.route('/api/chat/messages/<room_id>', methods=['POST'])
+def send_chat_message(room_id):
+    """채팅 메시지 전송"""
+    # 로그인 체크
+    if 'user' not in session or not session.get('user'):
+        return jsonify({'success': False, 'message': '로그인이 필요합니다.'}), 401
+    
+    data = request.get_json()
+    message = data.get('message', '').strip()
+    sender_nickname = data.get('sender_nickname', '익명')
+    
+    if not message:
+        return jsonify({'success': False, 'message': '메시지를 입력해주세요.'}), 400
+    
+    # 모든 메시지 로드
+    all_messages = load_chat_messages()
+    
+    # 해당 채팅방의 메시지 가져오기
+    if room_id not in all_messages:
+        all_messages[room_id] = []
+    
+    # 새 메시지 추가
+    new_message = {
+        'id': 'm' + str(int(time.time() * 1000)),
+        'sender': sender_nickname,
+        'content': message,
+        'timestamp': time.time(),
+        'created_at': datetime.now().isoformat()
+    }
+    
+    all_messages[room_id].append(new_message)
+    
+    # 최근 100개 메시지만 유지
+    if len(all_messages[room_id]) > 100:
+        all_messages[room_id] = all_messages[room_id][-100:]
+    
+    # 저장
+    if not save_chat_messages(all_messages):
+        return jsonify({'success': False, 'message': '메시지 저장 중 오류가 발생했습니다.'}), 500
+    
+    return jsonify({'success': True, 'message_data': new_message})
 
 @app.route('/api/check-nickname', methods=['POST'])
 def check_nickname():

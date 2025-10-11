@@ -2105,11 +2105,17 @@
         const roomParticipants = {};
 
         // 채팅방 입장
-        function enterRoom(roomName) {
+        async function enterRoom(roomName) {
             currentRoom = roomName;
             document.getElementById('chatHeader').textContent = roomName;
             document.getElementById('chatContent').style.display = 'none';
             document.getElementById('chatRoom').style.display = 'block';
+            
+            // 기존 메시지 로드
+            await loadRoomMessages(roomName);
+            
+            // 메시지 폴링 시작
+            startMessagePolling();
             
             // 관심분야 방인 경우 참여자 수 증가
             const roomData = chatData.roomList.find(room => room.name === roomName);
@@ -2230,43 +2236,122 @@
         }
 
         // 메시지 전송
-        function sendMessage() {
+        async function sendMessage() {
             const messageInput = document.getElementById('messageInput');
             const message = messageInput.value.trim();
             
             if (message && currentRoom) {
-        addMessage(message, true);
+                // 내 메시지를 즉시 표시
+                addMessage(message, true);
                 messageInput.value = '';
                 
-        // 시연용 자동 응답
-                setTimeout(() => {
-                    const responses = [
-                        '안녕하세요!',
-                        '네, 맞습니다.',
-                        '정말요?',
-                        '흥미롭네요!',
-                        '그렇군요.',
-            '좋은 생각이에요!',
-            '어떻게 생각하세요?',
-            '맞아요!'
-                    ];
-                    const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-          addMessage(randomResponse, false);
-          
-          // 다른 방에 읽지 않은 메시지 수 증가 (테스트용)
-          if (Math.random() > 0.7) { // 30% 확률로 다른 방에 메시지 도착
-            const rooms = Object.keys(roomParticipants);
-            const randomRoom = rooms[Math.floor(Math.random() * rooms.length)];
-            if (randomRoom !== currentRoom) {
-              incrementUnreadCount(randomRoom);
-            }
-          }
-                }, Math.random() * 2000 + 1000);
+                // 서버에 메시지 전송
+                try {
+                    const anonProfile = JSON.parse(localStorage.getItem('anonProfile') || 'null');
+                    const nickname = anonProfile ? anonProfile.nickname : '익명';
+                    
+                    const response = await fetch(`/api/chat/messages/${currentRoom}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            message: message,
+                            sender_nickname: nickname
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (!result.success) {
+                        console.error('메시지 전송 실패:', result.message);
+                    }
+                } catch (error) {
+                    console.error('메시지 전송 오류:', error);
+                }
             }
         }
 
+    // 메시지 폴링 인터벌
+    let messagePollingInterval = null;
+    let lastMessageId = null;
+    
+    // 채팅방 메시지 로드
+    async function loadRoomMessages(roomName) {
+        try {
+            const response = await fetch(`/api/chat/messages/${roomName}`);
+            const result = await response.json();
+            
+            if (result.success && result.messages) {
+                // 메시지 컨테이너 초기화
+                document.getElementById('chatMessages').innerHTML = '';
+                
+                // 현재 사용자의 닉네임 가져오기
+                const anonProfile = JSON.parse(localStorage.getItem('anonProfile') || 'null');
+                const myNickname = anonProfile ? anonProfile.nickname : '익명';
+                
+                // 메시지 표시
+                result.messages.forEach(msg => {
+                    const isMyMessage = msg.sender === myNickname;
+                    addMessage(msg.content, isMyMessage, msg.sender);
+                    lastMessageId = msg.id;
+                });
+            }
+        } catch (error) {
+            console.error('메시지 로드 오류:', error);
+        }
+    }
+    
+    // 메시지 폴링 시작
+    function startMessagePolling() {
+        // 기존 폴링 중지
+        if (messagePollingInterval) {
+            clearInterval(messagePollingInterval);
+        }
+        
+        // 3초마다 새 메시지 확인
+        messagePollingInterval = setInterval(async () => {
+            if (currentRoom) {
+                try {
+                    const response = await fetch(`/api/chat/messages/${currentRoom}`);
+                    const result = await response.json();
+                    
+                    if (result.success && result.messages) {
+                        const anonProfile = JSON.parse(localStorage.getItem('anonProfile') || 'null');
+                        const myNickname = anonProfile ? anonProfile.nickname : '익명';
+                        
+                        // 마지막으로 받은 메시지 이후의 새 메시지만 표시
+                        const newMessages = result.messages.filter(msg => 
+                            lastMessageId ? msg.id > lastMessageId : false
+                        );
+                        
+                        newMessages.forEach(msg => {
+                            const isMyMessage = msg.sender === myNickname;
+                            // 내가 보낸 메시지가 아닐 때만 표시 (내 메시지는 이미 표시됨)
+                            if (!isMyMessage) {
+                                addMessage(msg.content, false, msg.sender);
+                            }
+                            lastMessageId = msg.id;
+                        });
+                    }
+                } catch (error) {
+                    console.error('메시지 폴링 오류:', error);
+                }
+            }
+        }, 3000);
+    }
+    
+    // 메시지 폴링 중지
+    function stopMessagePolling() {
+        if (messagePollingInterval) {
+            clearInterval(messagePollingInterval);
+            messagePollingInterval = null;
+        }
+    }
+
     // 랜덤 매칭 홈으로 돌아가기
     function backToHome() {
+      stopMessagePolling();
       currentRoom = null;
       document.getElementById('chatHeader').textContent = '랜덤 매칭';
       document.getElementById('chatContent').style.display = 'block';

@@ -31,10 +31,49 @@ function canAccessDepartment(departmentId) {
 }
 
 // ===== 익명 번호 관리 =====
-let anonymousCounter = 1;
+// 게시글별 익명 번호 매핑: { postId: { studentId: anonymousNumber, ... }, ... }
+const postAnonymousMap = {};
 
+// 게시글별로 사용자에게 일관된 익명 번호를 부여
+function getAnonymousIdForPost(postId, studentId) {
+  // 해당 게시글의 매핑이 없으면 생성
+  if (!postAnonymousMap[postId]) {
+    postAnonymousMap[postId] = {
+      counter: 1,
+      userMap: {}
+    };
+  }
+  
+  // 이미 이 사용자에게 번호가 부여되었는지 확인
+  if (!postAnonymousMap[postId].userMap[studentId]) {
+    // 새 번호 부여
+    postAnonymousMap[postId].userMap[studentId] = postAnonymousMap[postId].counter;
+    postAnonymousMap[postId].counter++;
+  }
+  
+  return postAnonymousMap[postId].userMap[studentId];
+}
+
+// 기존 게시글과 댓글에서 익명 번호 매핑 재구성
+function rebuildAnonymousMap(posts, comments) {
+  posts.forEach(post => {
+    if (post.authorStudentId) {
+      // 게시글 작성자 매핑 재구성
+      getAnonymousIdForPost(post.id, post.authorStudentId);
+    }
+  });
+  
+  comments.forEach(comment => {
+    if (comment.authorStudentId) {
+      // 댓글 작성자 매핑 재구성
+      getAnonymousIdForPost(comment.postId, comment.authorStudentId);
+    }
+  });
+}
+
+// 하위 호환성을 위한 함수 (사용하지 않음)
 function generateAnonymousId() {
-  return anonymousCounter++; // 1부터 순차적으로 부여
+  return Math.floor(Math.random() * 1000) + 1;
 }
 
 // ===== 좋아요 관리 =====
@@ -1387,11 +1426,6 @@ function renderPostDetail(post, postComments) {
         
         <form class="comment-form" onsubmit="submitDetailComment(event, '${post.id}')">
           <input type="text" class="comment-input" placeholder="@멘션, #태그와 함께 댓글을 입력하세요" required />
-          <label class="comment-anonymous">
-            <input type="checkbox" class="comment-anonymous-checkbox" />
-            <span class="toggle-switch"></span>
-            익명
-          </label>
           <button type="submit" class="comment-send-btn">
             <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
@@ -1402,19 +1436,6 @@ function renderPostDetail(post, postComments) {
       </div>
     </div>
   `;
-  
-  // 익명 토글 이벤트 추가
-  const anonymousCheckbox = detailView.querySelector('.comment-anonymous-checkbox');
-  if (anonymousCheckbox) {
-    anonymousCheckbox.addEventListener('change', function() {
-      const toggle = this.nextElementSibling;
-      if (this.checked) {
-        toggle.classList.add('active');
-      } else {
-        toggle.classList.remove('active');
-      }
-    });
-  }
 }
 
 // ===== 목록으로 돌아가기 =====
@@ -1430,7 +1451,6 @@ async function submitDetailComment(event, postId) {
   
   const form = event.target;
   const input = form.querySelector('.comment-input');
-  const anonymousCheckbox = form.querySelector('.comment-anonymous-checkbox');
   
   const content = input.value.trim();
   if (!content) return;
@@ -1439,32 +1459,32 @@ async function submitDetailComment(event, postId) {
   const userProfile = JSON.parse(localStorage.getItem('userProfile') || 'null');
   const anonProfile = JSON.parse(localStorage.getItem('anonProfile') || 'null');
   
-  // 학번에서 입학년도 추출
+  // 학번에서 입학년도 추출 (항상 익명 처리)
   let yearDisplay = null;
   let statusDisplay = null;
   
-  if (!anonymousCheckbox.checked && userProfile && userProfile.studentId) {
-    const studentId = userProfile.studentId;
-    if (studentId.length >= 4) {
-      const admissionYear = studentId.substring(0, 4); // 예: "2022"
-      yearDisplay = admissionYear.substring(2); // 마지막 2자리: "22"
-    }
-    statusDisplay = userProfile.status || '재학생';
-  } else if (anonymousCheckbox.checked && anonProfile && anonProfile.year) {
+  if (anonProfile && anonProfile.year) {
     // 익명 프로필에서 학번 정보 가져오기
     yearDisplay = anonProfile.year.replace(/[^0-9]/g, ''); // "22학번" -> "22"
     statusDisplay = null; // 익명일 때는 상태 표시 안함
   }
   
+  // 현재 사용자의 학번
+  const currentUserStudentId = userProfile ? userProfile.studentId : null;
+  
+  // 게시글별로 일관된 익명 번호 부여
+  const anonymousId = currentUserStudentId ? getAnonymousIdForPost(postId, currentUserStudentId) : generateAnonymousId();
+  
   const newComment = {
     id: 'c' + Date.now(),
     postId: postId,
-    author: anonymousCheckbox.checked ? '익명' + generateAnonymousId() : '익명' + generateAnonymousId(),
+    author: '익명' + anonymousId,
+    authorStudentId: currentUserStudentId, // 작성자 학번 저장
     year: yearDisplay ? parseInt(yearDisplay) : null,
     status: statusDisplay,
     createdAt: new Date().toISOString(),
     content: content,
-    isAnonymous: anonymousCheckbox.checked,
+    isAnonymous: true, // 항상 익명
     likes: 0
   };
   
@@ -1525,9 +1545,6 @@ async function submitDetailComment(event, postId) {
       
       // 입력 필드 초기화
       input.value = '';
-      anonymousCheckbox.checked = false;
-      const toggle = anonymousCheckbox.nextElementSibling;
-      toggle.classList.remove('active');
       
       // 상세 화면 새로고침
       const postComments = comments.filter(c => c.postId === postId);
@@ -1659,21 +1676,33 @@ function removeTag(tag) {
   }
 }
 
+// 폼 제출 중 플래그
+let isSubmitting = false;
+
 // ===== 폼 제출 =====
 async function submitPost(event) {
   event.preventDefault();
+  
+  // 중복 제출 방지
+  if (isSubmitting) {
+    console.log('이미 제출 중입니다.');
+    return;
+  }
   
   const form = event.target;
   const title = form.postTitle.value.trim();
   const content = form.postContent.value.trim();
   const type = form.postType.value;
   const department = form.postDepartment.value;
-  const isAnonymous = form.postAnonymous.checked;
+  const isAnonymous = true; // 항상 익명으로 처리
   
   if (!title || !content) {
     alert('제목과 내용을 모두 입력해주세요.');
     return;
   }
+  
+  // 제출 시작
+  isSubmitting = true;
   
   const tags = Array.from(document.querySelectorAll('#tagsContainer .tag-item')).map(item => 
     item.getAttribute('data-tag')
@@ -1707,11 +1736,16 @@ async function submitPost(event) {
   // 현재 사용자의 학번 (작성자 확인용)
   const currentUserStudentId = userProfile ? userProfile.studentId : null;
   
+  const postId = 'p' + Date.now();
+  
+  // 게시글 작성자는 자동으로 익명1로 설정
+  const anonymousId = currentUserStudentId ? getAnonymousIdForPost(postId, currentUserStudentId) : 1;
+  
   const newPost = {
-    id: 'p' + Date.now(),
+    id: postId,
     title: title,
     content: content, // 내용도 저장
-    author: '익명' + generateAnonymousId(),
+    author: '익명' + anonymousId,
     authorStudentId: currentUserStudentId, // 작성자 학번 저장
     year: yearDisplay ? parseInt(yearDisplay) : null,
     status: statusDisplay,
@@ -1774,6 +1808,9 @@ async function submitPost(event) {
   } catch (error) {
     console.error('게시글 작성 오류:', error);
     alert('게시글 작성 중 오류가 발생했습니다. 다시 시도해주세요.');
+  } finally {
+    // 제출 완료 - 플래그 해제
+    isSubmitting = false;
   }
 }
 
@@ -1820,6 +1857,9 @@ document.addEventListener('DOMContentLoaded', async function() {
   // 서버에서 게시글과 댓글 로드
   posts = await loadPostsFromServer();
   comments = await loadCommentsFromServer();
+  
+  // 익명 번호 매핑 재구성
+  rebuildAnonymousMap(posts, comments);
   
   // 마이페이지에서 온 경우 특정 게시글로 이동
   const urlParams = new URLSearchParams(window.location.search);
