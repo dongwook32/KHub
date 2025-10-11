@@ -41,7 +41,7 @@ function generateAnonymousId() {
 let likedPosts = new Set(); // 좋아요한 게시글 ID 저장
 let likedComments = new Set(); // 좋아요한 댓글 ID 저장
 
-function toggleLike(postId) {
+async function toggleLike(postId) {
   const post = posts.find(p => p.id === postId);
   if (!post) return;
   
@@ -83,6 +83,19 @@ function toggleLike(postId) {
         console.error('좋아요 기록 저장 실패:', e);
       }
     }
+  }
+  
+  // 서버에 좋아요 수 저장
+  try {
+    await fetch(`/api/board-posts/${postId}/like`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ likes: post.likes })
+    });
+  } catch (error) {
+    console.error('좋아요 서버 저장 오류:', error);
   }
   
   // 게시글 정보 저장 (좋아요 수 변경)
@@ -134,7 +147,7 @@ function isLiked(postId) {
   return likedPosts.has(postId);
 }
 
-function toggleCommentLike(commentId) {
+async function toggleCommentLike(commentId) {
   const comment = comments.find(c => c.id === commentId);
   if (!comment) return;
   
@@ -183,6 +196,19 @@ function toggleCommentLike(commentId) {
         console.error('댓글 좋아요 기록 저장 실패:', e);
       }
     }
+  }
+  
+  // 서버에 댓글 좋아요 수 저장
+  try {
+    await fetch(`/api/board-comments/${commentId}/like`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ likes: comment.likes })
+    });
+  } catch (error) {
+    console.error('댓글 좋아요 서버 저장 오류:', error);
   }
   
   // UI 업데이트
@@ -1212,7 +1238,7 @@ function viewPost(postId) {
 }
 
 // ===== 게시글 삭제 =====
-function deletePost(postId) {
+async function deletePost(postId) {
   if (!confirm('정말 이 게시글을 삭제하시겠습니까?')) {
     return;
   }
@@ -1224,40 +1250,57 @@ function deletePost(postId) {
     return;
   }
   
-  // 게시글 삭제
-  const deletedPost = posts.splice(postIndex, 1)[0];
-  
-  // 해당 게시글의 댓글들도 삭제
-  comments = comments.filter(c => c.postId !== postId);
-  
-  // localStorage에 게시글 저장
-  savePostsToLocalStorage();
-  
-  // localStorage에서 삭제 (마이페이지 활동 기록)
-  const currentUser = localStorage.getItem('currentUser');
-  if (currentUser) {
-    try {
-      const activity = JSON.parse(localStorage.getItem(`activity_${currentUser}`) || '{"posts":[],"comments":[],"likes":[],"commentLikes":[]}');
+  try {
+    // 서버에서 게시글 삭제
+    const response = await fetch(`/api/board-posts/${postId}`, {
+      method: 'DELETE'
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      // 게시글 삭제
+      const deletedPost = posts.splice(postIndex, 1)[0];
       
-      // 내가 작성한 글 목록에서 삭제
-      activity.posts = activity.posts.filter(p => p.id !== postId);
+      // 해당 게시글의 댓글들도 삭제
+      comments = comments.filter(c => c.postId !== postId);
       
-      // 다른 사람이 좋아요한 글 목록에서도 삭제
-      activity.likes = activity.likes.filter(l => l.postId !== postId);
+      // localStorage에 게시글 저장
+      savePostsToLocalStorage();
+      saveCommentsToLocalStorage();
       
-      // 댓글도 삭제
-      activity.comments = activity.comments.filter(c => c.postId !== postId);
+      // localStorage에서 삭제 (마이페이지 활동 기록)
+      const currentUser = localStorage.getItem('currentUser');
+      if (currentUser) {
+        try {
+          const activity = JSON.parse(localStorage.getItem(`activity_${currentUser}`) || '{"posts":[],"comments":[],"likes":[],"commentLikes":[]}');
+          
+          // 내가 작성한 글 목록에서 삭제
+          activity.posts = activity.posts.filter(p => p.id !== postId);
+          
+          // 다른 사람이 좋아요한 글 목록에서도 삭제
+          activity.likes = activity.likes.filter(l => l.postId !== postId);
+          
+          // 댓글도 삭제
+          activity.comments = activity.comments.filter(c => c.postId !== postId);
+          
+          localStorage.setItem(`activity_${currentUser}`, JSON.stringify(activity));
+        } catch (e) {
+          console.error('활동 기록 삭제 실패:', e);
+        }
+      }
       
-      localStorage.setItem(`activity_${currentUser}`, JSON.stringify(activity));
-    } catch (e) {
-      console.error('활동 기록 삭제 실패:', e);
+      // 목록으로 돌아가기
+      backToList();
+      
+      alert('게시글이 삭제되었습니다.');
+    } else {
+      alert(result.message || '게시글 삭제 중 오류가 발생했습니다.');
     }
+  } catch (error) {
+    console.error('게시글 삭제 오류:', error);
+    alert('게시글 삭제 중 오류가 발생했습니다.');
   }
-  
-  // 목록으로 돌아가기
-  backToList();
-  
-  alert('게시글이 삭제되었습니다.');
 }
 
 // ===== 게시글 상세 화면 렌더링 =====
@@ -1387,7 +1430,7 @@ function backToList() {
 }
 
 // ===== 상세 화면 댓글 작성 =====
-function submitDetailComment(event, postId) {
+async function submitDetailComment(event, postId) {
   event.preventDefault();
   
   const form = event.target;
@@ -1430,50 +1473,84 @@ function submitDetailComment(event, postId) {
     likes: 0
   };
   
-  comments.push(newComment);
-  
-  // localStorage에 댓글 저장
-  saveCommentsToLocalStorage();
-  
-  // 해당 게시글의 댓글 수 증가
-  const post = posts.find(p => p.id === postId);
-  if (post) {
-    post.comments++;
-    // 게시글 정보도 localStorage에 저장
-    savePostsToLocalStorage();
-  }
-  
-  // 마이페이지 활동 기록에 추가
-  const currentUser = localStorage.getItem('currentUser');
-  if (currentUser) {
-    try {
-      const activity = JSON.parse(localStorage.getItem(`activity_${currentUser}`) || '{"posts":[],"comments":[],"likes":[],"commentLikes":[]}');
+  try {
+    // 서버에 댓글 저장
+    const response = await fetch('/api/board-comments', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(newComment)
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      comments.push(newComment);
       
-      activity.comments.unshift({
-        id: newComment.id,
-        content: newComment.content,
-        postTitle: post ? post.title : '삭제된 게시글',
-        postId: postId,
-        date: newComment.createdAt
-      });
+      // localStorage에 댓글 저장 (백업)
+      saveCommentsToLocalStorage();
       
-      localStorage.setItem(`activity_${currentUser}`, JSON.stringify(activity));
-    } catch (e) {
-      console.error('활동 기록 저장 실패:', e);
+      // 해당 게시글의 댓글 수 증가
+      const post = posts.find(p => p.id === postId);
+      if (post) {
+        post.comments++;
+        
+        // 서버에 게시글 댓글 수 업데이트
+        try {
+          await fetch(`/api/board-posts/${postId}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ comments: post.comments })
+          });
+        } catch (error) {
+          console.error('게시글 댓글 수 업데이트 오류:', error);
+        }
+        
+        // 게시글 정보도 저장 (로컬)
+        savePostsToLocalStorage();
+      }
+      
+      // 마이페이지 활동 기록에 추가
+      const currentUser = localStorage.getItem('currentUser');
+      if (currentUser) {
+        try {
+          const activity = JSON.parse(localStorage.getItem(`activity_${currentUser}`) || '{"posts":[],"comments":[],"likes":[],"commentLikes":[]}');
+          
+          activity.comments.unshift({
+            id: newComment.id,
+            content: newComment.content,
+            postTitle: post ? post.title : '삭제된 게시글',
+            postId: postId,
+            date: newComment.createdAt
+          });
+          
+          localStorage.setItem(`activity_${currentUser}`, JSON.stringify(activity));
+        } catch (e) {
+          console.error('활동 기록 저장 실패:', e);
+        }
+      }
+      
+      // 입력 필드 초기화
+      input.value = '';
+      anonymousCheckbox.checked = false;
+      const toggle = anonymousCheckbox.nextElementSibling;
+      toggle.classList.remove('active');
+      
+      // 상세 화면 새로고침
+      const postComments = comments.filter(c => c.postId === postId);
+      renderPostDetail(post, postComments);
+      
+      console.log('상세 화면 댓글 작성됨:', newComment);
+    } else {
+      alert(result.message || '댓글 작성 중 오류가 발생했습니다.');
     }
+  } catch (error) {
+    console.error('댓글 작성 오류:', error);
+    alert('댓글 작성 중 오류가 발생했습니다.');
   }
-  
-  // 입력 필드 초기화
-  input.value = '';
-  anonymousCheckbox.checked = false;
-  const toggle = anonymousCheckbox.nextElementSibling;
-  toggle.classList.remove('active');
-  
-  // 상세 화면 새로고침
-  const postComments = comments.filter(c => c.postId === postId);
-  renderPostDetail(post, postComments);
-  
-  console.log('상세 화면 댓글 작성됨:', newComment);
 }
 
 // ===== 댓글 저장/로드 함수 =====
@@ -1489,12 +1566,28 @@ function saveCommentsToLocalStorage() {
   }
 }
 
+async function loadCommentsFromServer() {
+  try {
+    const response = await fetch('/api/board-comments');
+    const result = await response.json();
+    
+    if (result.success && result.comments) {
+      console.log('서버에서 댓글 로드됨:', result.comments.length + '개');
+      // 서버 댓글과 mockComments 병합
+      return [...result.comments, ...mockComments];
+    }
+  } catch (e) {
+    console.error('서버에서 댓글 로드 실패:', e);
+  }
+  return [...mockComments];
+}
+
 function loadCommentsFromLocalStorage() {
   try {
     const savedComments = localStorage.getItem('boardComments');
     if (savedComments) {
       const userComments = JSON.parse(savedComments);
-      console.log('저장된 댓글 로드됨:', userComments.length + '개');
+      console.log('로컬 댓글 로드됨:', userComments.length + '개');
       // mockComments와 병합 (사용자 댓글을 앞에 배치)
       return [...userComments, ...mockComments];
     }
@@ -1583,7 +1676,7 @@ function removeTag(tag) {
 }
 
 // ===== 폼 제출 =====
-function submitPost(event) {
+async function submitPost(event) {
   event.preventDefault();
   
   const form = event.target;
@@ -1645,37 +1738,57 @@ function submitPost(event) {
     category: categoryName
   };
   
-  posts.unshift(newPost);
-  
-  // localStorage에 게시글 저장
-  savePostsToLocalStorage();
-  
-  // 마이페이지 활동 기록에 추가
-  const currentUser = localStorage.getItem('currentUser');
-  if (currentUser) {
-    try {
-      const activity = JSON.parse(localStorage.getItem(`activity_${currentUser}`) || '{"posts":[],"comments":[],"likes":[],"commentLikes":[]}');
+  try {
+    // 서버에 게시글 저장
+    const response = await fetch('/api/board-posts', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(newPost)
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      posts.unshift(newPost);
       
-      activity.posts.unshift({
-        id: newPost.id,
-        title: newPost.title,
-        content: newPost.content,
-        category: newPost.category,
-        date: newPost.createdAt,
-        likes: 0
-      });
+      // localStorage에도 저장 (백업)
+      savePostsToLocalStorage();
       
-      localStorage.setItem(`activity_${currentUser}`, JSON.stringify(activity));
-    } catch (e) {
-      console.error('활동 기록 저장 실패:', e);
+      // 마이페이지 활동 기록에 추가
+      const currentUser = localStorage.getItem('currentUser');
+      if (currentUser) {
+        try {
+          const activity = JSON.parse(localStorage.getItem(`activity_${currentUser}`) || '{"posts":[],"comments":[],"likes":[],"commentLikes":[]}');
+          
+          activity.posts.unshift({
+            id: newPost.id,
+            title: newPost.title,
+            content: newPost.content,
+            category: newPost.category,
+            date: newPost.createdAt,
+            likes: 0
+          });
+          
+          localStorage.setItem(`activity_${currentUser}`, JSON.stringify(activity));
+        } catch (e) {
+          console.error('활동 기록 저장 실패:', e);
+        }
+      }
+      
+      hideWriteModal();
+      filterAndDisplayPosts();
+      
+      alert('게시글이 작성되었습니다!');
+      console.log('게시글 작성됨:', newPost);
+    } else {
+      alert(result.message || '게시글 작성 중 오류가 발생했습니다.');
     }
+  } catch (error) {
+    console.error('게시글 작성 오류:', error);
+    alert('게시글 작성 중 오류가 발생했습니다. 다시 시도해주세요.');
   }
-  
-  hideWriteModal();
-  filterAndDisplayPosts();
-  
-  alert('게시글이 작성되었습니다!');
-  console.log('게시글 작성됨:', newPost);
 }
 
 // ===== 게시글 저장/로드 함수 =====
@@ -1693,12 +1806,28 @@ function savePostsToLocalStorage() {
   }
 }
 
+async function loadPostsFromServer() {
+  try {
+    const response = await fetch('/api/board-posts');
+    const result = await response.json();
+    
+    if (result.success && result.posts) {
+      console.log('서버에서 게시글 로드됨:', result.posts.length + '개');
+      // 서버 게시글과 mockPosts 병합
+      return [...result.posts, ...mockPosts];
+    }
+  } catch (e) {
+    console.error('서버에서 게시글 로드 실패:', e);
+  }
+  return [...mockPosts];
+}
+
 function loadPostsFromLocalStorage() {
   try {
     const savedPosts = localStorage.getItem('boardPosts');
     if (savedPosts) {
       const userPosts = JSON.parse(savedPosts);
-      console.log('저장된 게시글 로드됨:', userPosts.length + '개');
+      console.log('로컬 게시글 로드됨:', userPosts.length + '개');
       // mockPosts와 병합 (사용자 게시글을 앞에 배치)
       return [...userPosts, ...mockPosts];
     }
@@ -1709,10 +1838,10 @@ function loadPostsFromLocalStorage() {
 }
 
 // ===== 이벤트 리스너 =====
-document.addEventListener('DOMContentLoaded', function() {
-  // localStorage에서 게시글 로드 (mockPosts와 병합)
-  posts = loadPostsFromLocalStorage();
-  comments = loadCommentsFromLocalStorage();
+document.addEventListener('DOMContentLoaded', async function() {
+  // 서버에서 게시글과 댓글 로드
+  posts = await loadPostsFromServer();
+  comments = await loadCommentsFromServer();
   
   // 마이페이지에서 온 경우 특정 게시글로 이동
   const urlParams = new URLSearchParams(window.location.search);

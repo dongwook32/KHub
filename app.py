@@ -8,6 +8,8 @@ app.secret_key = 'change-me'
 # 데이터 저장 파일 경로
 DATA_FILE = 'registered_users.json'
 ANON_PROFILES_FILE = 'anon_profiles.json'
+BOARD_POSTS_FILE = 'board_posts.json'
+BOARD_COMMENTS_FILE = 'board_comments.json'
 
 def load_users():
     """등록된 사용자 정보 불러오기"""
@@ -48,6 +50,44 @@ def save_anon_profiles(profiles):
     try:
         with open(ANON_PROFILES_FILE, 'w', encoding='utf-8') as f:
             json.dump(profiles, f, ensure_ascii=False, indent=2)
+        return True
+    except:
+        return False
+
+def load_board_posts():
+    """게시글 불러오기"""
+    if os.path.exists(BOARD_POSTS_FILE):
+        try:
+            with open(BOARD_POSTS_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except:
+            return []
+    return []
+
+def save_board_posts(posts):
+    """게시글 저장하기"""
+    try:
+        with open(BOARD_POSTS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(posts, f, ensure_ascii=False, indent=2)
+        return True
+    except:
+        return False
+
+def load_board_comments():
+    """댓글 불러오기"""
+    if os.path.exists(BOARD_COMMENTS_FILE):
+        try:
+            with open(BOARD_COMMENTS_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except:
+            return []
+    return []
+
+def save_board_comments(comments):
+    """댓글 저장하기"""
+    try:
+        with open(BOARD_COMMENTS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(comments, f, ensure_ascii=False, indent=2)
         return True
     except:
         return False
@@ -384,6 +424,201 @@ def get_interest_counts():
         'success': True, 
         'interest_counts': interest_counts,
         'interest_users': interest_users
+    })
+
+@app.route('/api/board-posts', methods=['GET'])
+def get_board_posts():
+    """게시글 목록 조회"""
+    # 로그인 체크
+    if 'user' not in session or not session.get('user'):
+        return jsonify({'success': False, 'message': '로그인이 필요합니다.'}), 401
+    
+    posts = load_board_posts()
+    return jsonify({'success': True, 'posts': posts})
+
+@app.route('/api/board-posts', methods=['POST'])
+def create_board_post():
+    """게시글 작성"""
+    # 로그인 체크
+    if 'user' not in session or not session.get('user'):
+        return jsonify({'success': False, 'message': '로그인이 필요합니다.'}), 401
+    
+    data = request.get_json()
+    
+    # 게시글 데이터 로드
+    posts = load_board_posts()
+    
+    # 새 게시글 추가
+    posts.append(data)
+    
+    # 저장
+    if not save_board_posts(posts):
+        return jsonify({'success': False, 'message': '게시글 저장 중 오류가 발생했습니다.'}), 500
+    
+    return jsonify({'success': True, 'message': '게시글이 작성되었습니다.', 'post': data})
+
+@app.route('/api/board-posts/<post_id>', methods=['DELETE'])
+def delete_board_post(post_id):
+    """게시글 삭제"""
+    # 로그인 체크
+    if 'user' not in session or not session.get('user'):
+        return jsonify({'success': False, 'message': '로그인이 필요합니다.'}), 401
+    
+    posts = load_board_posts()
+    
+    # 게시글 삭제
+    posts = [p for p in posts if p.get('id') != post_id]
+    
+    # 저장
+    if not save_board_posts(posts):
+        return jsonify({'success': False, 'message': '게시글 삭제 중 오류가 발생했습니다.'}), 500
+    
+    # 해당 게시글의 댓글도 삭제
+    comments = load_board_comments()
+    comments = [c for c in comments if c.get('postId') != post_id]
+    save_board_comments(comments)
+    
+    return jsonify({'success': True, 'message': '게시글이 삭제되었습니다.'})
+
+@app.route('/api/board-comments', methods=['GET'])
+def get_board_comments():
+    """댓글 목록 조회"""
+    # 로그인 체크
+    if 'user' not in session or not session.get('user'):
+        return jsonify({'success': False, 'message': '로그인이 필요합니다.'}), 401
+    
+    comments = load_board_comments()
+    return jsonify({'success': True, 'comments': comments})
+
+@app.route('/api/board-comments', methods=['POST'])
+def create_board_comment():
+    """댓글 작성"""
+    # 로그인 체크
+    if 'user' not in session or not session.get('user'):
+        return jsonify({'success': False, 'message': '로그인이 필요합니다.'}), 401
+    
+    data = request.get_json()
+    
+    # 댓글 데이터 로드
+    comments = load_board_comments()
+    
+    # 새 댓글 추가
+    comments.append(data)
+    
+    # 저장
+    if not save_board_comments(comments):
+        return jsonify({'success': False, 'message': '댓글 저장 중 오류가 발생했습니다.'}), 500
+    
+    return jsonify({'success': True, 'message': '댓글이 작성되었습니다.', 'comment': data})
+
+@app.route('/api/board-posts/<post_id>', methods=['PUT'])
+def update_board_post(post_id):
+    """게시글 정보 업데이트 (좋아요, 댓글 수 등)"""
+    # 로그인 체크
+    if 'user' not in session or not session.get('user'):
+        return jsonify({'success': False, 'message': '로그인이 필요합니다.'}), 401
+    
+    posts = load_board_posts()
+    
+    # 게시글 찾기
+    post = next((p for p in posts if p.get('id') == post_id), None)
+    
+    if not post:
+        return jsonify({'success': False, 'message': '게시글을 찾을 수 없습니다.'}), 404
+    
+    # 업데이트할 데이터
+    data = request.get_json()
+    if 'likes' in data:
+        post['likes'] = data['likes']
+    if 'comments' in data:
+        post['comments'] = data['comments']
+    if 'views' in data:
+        post['views'] = data['views']
+    
+    # 저장
+    if not save_board_posts(posts):
+        return jsonify({'success': False, 'message': '게시글 업데이트 중 오류가 발생했습니다.'}), 500
+    
+    return jsonify({'success': True, 'post': post})
+
+@app.route('/api/board-posts/<post_id>/like', methods=['POST'])
+def toggle_post_like(post_id):
+    """게시글 좋아요 토글"""
+    # 로그인 체크
+    if 'user' not in session or not session.get('user'):
+        return jsonify({'success': False, 'message': '로그인이 필요합니다.'}), 401
+    
+    posts = load_board_posts()
+    
+    # 게시글 찾기
+    post = next((p for p in posts if p.get('id') == post_id), None)
+    
+    if not post:
+        return jsonify({'success': False, 'message': '게시글을 찾을 수 없습니다.'}), 404
+    
+    # 좋아요 수 업데이트
+    data = request.get_json()
+    post['likes'] = data.get('likes', 0)
+    
+    # 저장
+    if not save_board_posts(posts):
+        return jsonify({'success': False, 'message': '좋아요 저장 중 오류가 발생했습니다.'}), 500
+    
+    return jsonify({'success': True, 'likes': post['likes']})
+
+@app.route('/api/board-comments/<comment_id>/like', methods=['POST'])
+def toggle_comment_like(comment_id):
+    """댓글 좋아요 토글"""
+    # 로그인 체크
+    if 'user' not in session or not session.get('user'):
+        return jsonify({'success': False, 'message': '로그인이 필요합니다.'}), 401
+    
+    comments = load_board_comments()
+    
+    # 댓글 찾기
+    comment = next((c for c in comments if c.get('id') == comment_id), None)
+    
+    if not comment:
+        return jsonify({'success': False, 'message': '댓글을 찾을 수 없습니다.'}), 404
+    
+    # 좋아요 수 업데이트
+    data = request.get_json()
+    comment['likes'] = data.get('likes', 0)
+    
+    # 저장
+    if not save_board_comments(comments):
+        return jsonify({'success': False, 'message': '좋아요 저장 중 오류가 발생했습니다.'}), 500
+    
+    return jsonify({'success': True, 'likes': comment['likes']})
+
+@app.route('/api/check-nickname', methods=['POST'])
+def check_nickname():
+    """닉네임 중복 체크 API"""
+    # 로그인 체크
+    if 'user' not in session or not session.get('user'):
+        return jsonify({'success': False, 'message': '로그인이 필요합니다.'}), 401
+    
+    current_user = session.get('user', {})
+    current_student_id = current_user.get('student_id')
+    
+    data = request.get_json()
+    nickname = data.get('nickname', '').strip()
+    
+    if not nickname:
+        return jsonify({'available': True})
+    
+    # 모든 익명 프로필 로드
+    all_profiles = load_anon_profiles()
+    
+    # 자신의 현재 닉네임 제외하고 중복 체크
+    is_duplicate = any(
+        p.get('nickname') == nickname and p.get('student_id') != current_student_id
+        for p in all_profiles
+    )
+    
+    return jsonify({
+        'available': not is_duplicate,
+        'message': '이미 사용 중인 닉네임입니다.' if is_duplicate else '사용 가능한 닉네임입니다.'
     })
 
 @app.route('/api/save-anon-profile', methods=['POST'])

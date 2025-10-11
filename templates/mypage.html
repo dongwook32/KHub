@@ -703,12 +703,27 @@
       button.classList.toggle('selected');
     }
 
-    // 사용 중인 닉네임 목록 (실제로는 서버에서 가져와야 함)
-    const usedNicknames = [];
-    
-    // 닉네임 중복 검사 함수
-    function isNicknameAvailable(nickname) {
-      return !usedNicknames.includes(nickname);
+    // 닉네임 중복 검사 함수 (서버 API 사용)
+    async function isNicknameAvailable(nickname) {
+      if (!nickname || nickname.trim() === '') {
+        return true;
+      }
+      
+      try {
+        const response = await fetch("{{ url_for('check_nickname') }}", {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ nickname: nickname.trim() })
+        });
+        
+        const result = await response.json();
+        return result.available;
+      } catch (error) {
+        console.error('닉네임 중복 체크 실패:', error);
+        return true; // 오류 시 진행 허용
+      }
     }
 
     // 익명카드 저장
@@ -729,11 +744,14 @@
         return;
       }
       
-      // 닉네임 중복 검증 (기본값이 아닌 경우에만)
-      if (nickname !== '익명의친구' && !isNicknameAvailable(nickname)) {
-        alert('이미 사용 중인 닉네임입니다. 다른 닉네임을 입력해주세요!');
-        document.getElementById('editAnonNickname').focus();
-        return;
+      // 닉네임 중복 검증
+      if (nickname) {
+        const available = await isNicknameAvailable(nickname);
+        if (!available) {
+          alert('이미 사용 중인 닉네임입니다. 다른 닉네임을 입력해주세요!');
+          document.getElementById('editAnonNickname').focus();
+          return;
+        }
       }
       
       const anonProfile = { nickname, year, gender, bio, interests };
@@ -795,27 +813,41 @@
           
           // 닉네임 실시간 검증 이벤트 리스너 추가
           const nicknameInput = document.getElementById('editAnonNickname');
+          let nicknameCheckTimeout = null;
+          
           nicknameInput.addEventListener('input', function() {
             const nicknameValue = this.value.trim();
-            const nicknameError = document.getElementById('nickname-error-modal');
             
-            if (nicknameValue && !isNicknameAvailable(nicknameValue)) {
-              if (!nicknameError) {
-                const errorDiv = document.createElement('div');
-                errorDiv.id = 'nickname-error-modal';
-                errorDiv.className = 'text-red-500 text-sm mt-1';
-                errorDiv.innerHTML = '⚠️ 이미 사용 중인 닉네임입니다.';
-                this.parentNode.appendChild(errorDiv);
+            // 디바운싱 적용
+            clearTimeout(nicknameCheckTimeout);
+            nicknameCheckTimeout = setTimeout(async () => {
+              const nicknameError = document.getElementById('nickname-error-modal');
+              
+              if (nicknameValue) {
+                const available = await isNicknameAvailable(nicknameValue);
+                
+                if (!available) {
+                  if (!nicknameError) {
+                    const errorDiv = document.createElement('div');
+                    errorDiv.id = 'nickname-error-modal';
+                    errorDiv.className = 'text-red-500 text-sm mt-1';
+                    errorDiv.innerHTML = '⚠️ 이미 사용 중인 닉네임입니다.';
+                    this.parentNode.appendChild(errorDiv);
+                  }
+                  this.style.borderColor = '#ef4444';
+                } else {
+                  if (nicknameError) {
+                    nicknameError.remove();
+                  }
+                  this.style.borderColor = '#10b981';
+                }
+              } else {
+                if (nicknameError) {
+                  nicknameError.remove();
+                }
+                this.style.borderColor = '';
               }
-              this.classList.add('border-red-400');
-              this.classList.remove('border-gray-300');
-            } else {
-              if (nicknameError) {
-                nicknameError.remove();
-              }
-              this.classList.remove('border-red-400');
-              this.classList.add('border-gray-300');
-            }
+            }, 500);
           });
         }
       }

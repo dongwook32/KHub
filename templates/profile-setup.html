@@ -214,6 +214,8 @@
                         <span id="ap_nickname_count">0</span>/10
                     </div>
                 </div>
+                <div id="nicknameError" class="text-red-500 text-sm mt-1" style="display: none;"></div>
+                <div id="nicknameSuccess" class="text-green-600 text-sm mt-1" style="display: none;"></div>
             </div>
 
             <!-- 자기소개 -->
@@ -308,6 +310,45 @@
         // hidden input에 선택된 성별 저장
         document.getElementById('gender_input').value = button.dataset.gender;
     }
+    
+    // 닉네임 중복 체크 함수
+    let nicknameCheckTimeout = null;
+    async function checkNicknameDuplicate(nickname) {
+        if (!nickname || nickname.trim() === '') {
+            document.getElementById('nicknameError').style.display = 'none';
+            document.getElementById('nicknameSuccess').style.display = 'none';
+            return true;
+        }
+        
+        try {
+            const response = await fetch("{{ url_for('check_nickname') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ nickname: nickname.trim() })
+            });
+            
+            const result = await response.json();
+            
+            if (result.available) {
+                document.getElementById('nicknameError').style.display = 'none';
+                document.getElementById('nicknameSuccess').textContent = '✓ ' + result.message;
+                document.getElementById('nicknameSuccess').style.display = 'block';
+                document.getElementById('ap_nickname').style.borderColor = '#10b981';
+                return true;
+            } else {
+                document.getElementById('nicknameSuccess').style.display = 'none';
+                document.getElementById('nicknameError').textContent = '⚠️ ' + result.message;
+                document.getElementById('nicknameError').style.display = 'block';
+                document.getElementById('ap_nickname').style.borderColor = '#ef4444';
+                return false;
+            }
+        } catch (error) {
+            console.error('닉네임 중복 체크 실패:', error);
+            return true; // 오류 시 진행 허용
+        }
+    }
 
     // 선택된 관심사 개수 업데이트
     function updateSelectedCount() {
@@ -386,7 +427,15 @@
         const nicknameCount = document.getElementById('ap_nickname_count');
         
         bio.addEventListener('input', ()=>{ count.textContent = bio.value.length; });
-        nickname.addEventListener('input', ()=>{ nicknameCount.textContent = nickname.value.length; });
+        nickname.addEventListener('input', function() {
+            nicknameCount.textContent = nickname.value.length;
+            
+            // 실시간 닉네임 중복 체크 (디바운싱)
+            clearTimeout(nicknameCheckTimeout);
+            nicknameCheckTimeout = setTimeout(() => {
+                checkNicknameDuplicate(nickname.value);
+            }, 500);
+        });
         
         // 관심사 체크박스 변경 시 시각적 피드백
         const checkboxes = document.querySelectorAll('.interest-checkbox');
@@ -402,15 +451,30 @@
             });
         });
 
-        // 폼 제출 시 최소 1개 관심사 선택 검증
-        form.addEventListener('submit', (e)=>{
+        // 폼 제출 시 검증
+        form.addEventListener('submit', async (e)=>{
+            e.preventDefault();
+            
             const selectedInterests = document.querySelectorAll('.interest-checkbox:checked');
             
             if (selectedInterests.length === 0) {
-                e.preventDefault();
                 alert('관심사를 최소 1개 이상 선택해주세요!');
                 return false;
             }
+            
+            // 닉네임 중복 체크
+            const nicknameValue = nickname.value.trim();
+            if (nicknameValue) {
+                const isAvailable = await checkNicknameDuplicate(nicknameValue);
+                if (!isAvailable) {
+                    alert('이미 사용 중인 닉네임입니다. 다른 닉네임을 입력해주세요.');
+                    nickname.focus();
+                    return false;
+                }
+            }
+            
+            // 검증 통과 - 폼 제출
+            form.submit();
         });
 
         // 모바일 메뉴는 navigation.js에서 처리됩니다
