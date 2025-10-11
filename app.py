@@ -139,34 +139,9 @@ def login_post():
                 flash('비밀번호가 올바르지 않습니다.', 'error')
                 return redirect(url_for('login'))
         else:
-            # 사용자가 등록되지 않은 경우 - 기존 동작 유지 (데모용)
-            if len(student_id) >= 4:
-                dept_code = student_id[2:4]
-                
-                dept_mapping = {
-                    '01': 'bible',
-                    '02': 'social',
-                    '03': 'child',
-                    '04': 'ai',
-                    '05': 'nursing',
-                    '06': 'ai'
-                }
-                
-                department = dept_mapping.get(dept_code, 'free')
-                
-                session['user'] = {
-                    'student_id': student_id,
-                    'department': department,
-                    'dept_code': dept_code
-                }
-            else:
-                session['user'] = {
-                    'student_id': student_id,
-                    'department': 'free',
-                    'dept_code': 'unknown'
-                }
-            
-            return redirect(url_for('mypage'))
+            # 등록되지 않은 사용자
+            flash('등록되지 않은 학번입니다. 회원가입을 먼저 진행해주세요.', 'error')
+            return redirect(url_for('login'))
     
     flash('학번과 비밀번호를 입력해주세요.', 'error')
     return redirect(url_for('login'))
