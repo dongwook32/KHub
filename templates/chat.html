@@ -2931,7 +2931,15 @@
       if (serverProfile && Object.keys(serverProfile).length > 0) {
         localStorage.setItem('anonProfile', JSON.stringify(serverProfile));
         console.log('서버 프로필을 localStorage에 저장:', serverProfile);
+      } else {
+        // 서버에 프로필이 없으면 localStorage의 이전 프로필 삭제
+        localStorage.removeItem('anonProfile');
+        console.log('서버에 익명 프로필이 없어 localStorage에서 삭제');
       }
+      {% else %}
+      // 서버에 프로필이 없으면 localStorage의 이전 프로필 삭제
+      localStorage.removeItem('anonProfile');
+      console.log('서버에 익명 프로필이 없어 localStorage에서 삭제');
       {% endif %}
       
       loadAnonProfile();

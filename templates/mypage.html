@@ -1302,7 +1302,15 @@
       if (serverAnonProfile && Object.keys(serverAnonProfile).length > 0) {
         localStorage.setItem('anonProfile', JSON.stringify(serverAnonProfile));
         console.log('서버 익명 프로필을 localStorage에 저장:', serverAnonProfile);
+      } else {
+        // 서버에 프로필이 없으면 localStorage의 이전 프로필 삭제
+        localStorage.removeItem('anonProfile');
+        console.log('서버에 익명 프로필이 없어 localStorage에서 삭제');
       }
+      {% else %}
+      // 서버에 프로필이 없으면 localStorage의 이전 프로필 삭제
+      localStorage.removeItem('anonProfile');
+      console.log('서버에 익명 프로필이 없어 localStorage에서 삭제');
       {% endif %}
       
       loadAnonProfile();
@@ -1313,11 +1321,12 @@
     // 로그아웃
     function handleLogout() {
       if (confirm('로그아웃하시겠습니까?')) {
-        // localStorage 초기화
+        // localStorage 완전 초기화
         localStorage.removeItem('isLoggedIn');
         localStorage.removeItem('currentUser');
         localStorage.removeItem('userProfile');
-        // 주의: anonProfile과 activity는 유지 (다음 로그인 시 사용 가능)
+        localStorage.removeItem('anonProfile'); // 익명 프로필 삭제
+        // activity 데이터는 학번별로 저장되므로 유지
         
         // 서버 로그아웃 처리
         window.location.href = "{{ url_for('logout') }}";
