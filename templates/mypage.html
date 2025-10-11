@@ -556,10 +556,11 @@
       </div>
       <div class="modal-body">
         <p class="text-sm text-muted-foreground">게시판에 남긴 글/댓글은 운영정책에 따라 익명화 처리되며, 계정 정보는 복구되지 않습니다.</p>
+        <p class="text-sm text-muted-foreground" style="margin-top: 8px; color: #ef4444; font-weight: 600;">⚠️ 모든 데이터가 영구적으로 삭제되며 복구할 수 없습니다.</p>
       </div>
       <div class="modal-footer">
         <button class="btn btn-outline" onclick="closeModal('deleteModal')">취소</button>
-        <button class="btn btn-destructive">탈퇴 진행</button>
+        <button class="btn btn-destructive" onclick="handleDeleteAccount()">탈퇴 진행</button>
       </div>
     </div>
   </div>
@@ -1232,6 +1233,64 @@
         
         // 서버 로그아웃 처리
         window.location.href = "{{ url_for('logout') }}";
+      }
+    }
+
+    // 회원 탈퇴
+    async function handleDeleteAccount() {
+      try {
+        // 최종 확인
+        const confirmed = confirm('정말로 회원 탈퇴하시겠습니까? 모든 데이터가 영구적으로 삭제됩니다.');
+        if (!confirmed) {
+          return;
+        }
+        
+        // 서버에 탈퇴 요청
+        const response = await fetch("{{ url_for('delete_account') }}", {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          // localStorage의 모든 데이터 삭제
+          const currentUser = localStorage.getItem('currentUser');
+          if (currentUser) {
+            // 사용자별 데이터 삭제
+            localStorage.removeItem(`activity_${currentUser}`);
+            localStorage.removeItem('anonProfile');
+            localStorage.removeItem('userProfile');
+            localStorage.removeItem('currentUser');
+            localStorage.removeItem('isLoggedIn');
+          }
+          
+          // 기타 관련 데이터 삭제
+          const keysToRemove = [];
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && (key.startsWith('activity_') || key.includes('user') || key.includes('profile'))) {
+              keysToRemove.push(key);
+            }
+          }
+          keysToRemove.forEach(key => localStorage.removeItem(key));
+          
+          // 모달 닫기
+          closeModal('deleteModal');
+          
+          // 성공 메시지 표시
+          alert(result.message);
+          
+          // 홈페이지로 리디렉트
+          window.location.href = result.redirect || "{{ url_for('index') }}";
+        } else {
+          alert(result.message || '회원 탈퇴 중 오류가 발생했습니다.');
+        }
+      } catch (error) {
+        console.error('회원 탈퇴 오류:', error);
+        alert('회원 탈퇴 처리 중 오류가 발생했습니다. 다시 시도해주세요.');
       }
     }
 

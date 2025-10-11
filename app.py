@@ -234,6 +234,48 @@ def logout():
     flash('로그아웃되었습니다.', 'success')
     return redirect(url_for('index'))
 
+@app.route('/delete-account', methods=['POST'])
+def delete_account():
+    """회원 탈퇴"""
+    # 로그인 체크
+    if 'user' not in session or not session.get('user'):
+        return jsonify({'success': False, 'message': '로그인이 필요합니다.'}), 401
+    
+    current_user = session.get('user', {})
+    student_id = current_user.get('student_id')
+    
+    if not student_id:
+        return jsonify({'success': False, 'message': '사용자 정보를 찾을 수 없습니다.'}), 400
+    
+    # 사용자 데이터 로드
+    users = load_users()
+    
+    # 해당 사용자 찾아서 삭제
+    original_count = len(users)
+    users = [user for user in users if user.get('student_id') != student_id]
+    
+    if len(users) == original_count:
+        # 사용자를 찾지 못한 경우 (등록되지 않은 사용자일 수 있음)
+        session.clear()
+        return jsonify({
+            'success': True, 
+            'message': '회원 탈퇴가 완료되었습니다.',
+            'redirect': url_for('index')
+        })
+    
+    # 변경된 사용자 목록 저장
+    if not save_users(users):
+        return jsonify({'success': False, 'message': '회원 탈퇴 중 오류가 발생했습니다.'}), 500
+    
+    # 세션 삭제
+    session.clear()
+    
+    return jsonify({
+        'success': True, 
+        'message': '회원 탈퇴가 완료되었습니다. 그동안 이용해주셔서 감사합니다.',
+        'redirect': url_for('index')
+    })
+
 @app.route('/profile-setup', methods=['GET', 'POST'])
 def profile_setup():
     # 로그인 체크
