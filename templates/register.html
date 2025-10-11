@@ -74,6 +74,24 @@
   <button type="button" class="alert-close" onclick="closeAlert()" aria-label="알림 닫기">&times;</button>
 </div>
 
+<!-- Flask Flash 메시지 표시 -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for category, message in messages %}
+      <div class="global-alert alert-{{ category }}" role="alert" style="display: flex; position: fixed; top: 100px; left: 50%; transform: translateX(-50%); z-index: 9999; min-width: 300px; max-width: 600px;">
+        <span>{{ message }}</span>
+        <button type="button" class="alert-close" onclick="this.parentElement.style.display='none'" aria-label="알림 닫기">&times;</button>
+      </div>
+      <script>
+        setTimeout(function() {
+          const alertEl = document.querySelector('.global-alert.alert-{{ category }}');
+          if (alertEl) alertEl.style.display = 'none';
+        }, 5000);
+      </script>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+
 <div class="register-container">
   <div class="register-card">
     <!-- 헤더 -->

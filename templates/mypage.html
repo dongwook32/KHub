@@ -258,13 +258,13 @@
         <div class="hero-info">
           <div class="hero-title">내 정보</div>
           <div class="hero-name">
-            <span id="userName">정준영</span>
+            <span id="userName"></span>
           </div>
           <div class="hero-details">
             <span id="userDept">한국성서대</span>
           </div>
           <div class="hero-details">
-            <span id="userStudentId">2022</span>학번 · <span id="userStatus">재학생</span>
+            <span id="userStudentId"></span>학번 · <span id="userStatus"></span>
           </div>
           <div class="hero-intro" id="userIntro"></div>
         </div>
@@ -334,27 +334,27 @@
       <div class="account-grid">
         <div class="account-card">
           <div class="account-label">이름</div>
-          <div class="account-value" id="accountName">정준영</div>
+          <div class="account-value" id="accountName"></div>
         </div>
         <div class="account-card">
           <div class="account-label">학번</div>
-          <div class="account-value" id="accountStudentId">2022학번</div>
+          <div class="account-value" id="accountStudentId"></div>
         </div>
         <div class="account-card">
           <div class="account-label">생일</div>
-          <div class="account-value" id="accountBirthday">1999-01-01</div>
+          <div class="account-value" id="accountBirthday"></div>
         </div>
         <div class="account-card">
           <div class="account-label">성별</div>
-          <div class="account-value" id="accountGender">남자</div>
+          <div class="account-value" id="accountGender"></div>
         </div>
         <div class="account-card">
           <div class="account-label">재학 상태</div>
-          <div class="account-value" id="accountStatus">재학생</div>
+          <div class="account-value" id="accountStatus"></div>
         </div>
         <div class="account-card">
           <div class="account-label">이메일</div>
-          <div class="account-value" id="accountEmail">user@bible.ac.kr</div>
+          <div class="account-value" id="accountEmail"></div>
         </div>
       </div>
     </div>
@@ -684,11 +684,7 @@
     }
 
     // 사용 중인 닉네임 목록 (실제로는 서버에서 가져와야 함)
-    const usedNicknames = [
-      '익명1', '익명2', '익명3', '익명4', '익명5', '익명6', '익명7', '익명8', '익명9', '익명10',
-      '익명11', '익명12', '익명13', '익명14', '익명15', '익명16', '익명17', '익명18', '익명19',
-      '익명의친구', '익명의학생', '익명의동료', '신비한친구', '알수없는누군가'
-    ];
+    const usedNicknames = [];
     
     // 닉네임 중복 검사 함수
     function isNicknameAvailable(nickname) {
@@ -1196,20 +1192,46 @@
       // 년도 설정
       document.getElementById('year').textContent = new Date().getFullYear();
       
+      // Flask 세션에서 사용자 정보를 localStorage에 저장
+      {% if session.user %}
+      try {
+        const sessionUser = {
+          name: "{{ session.user.name }}",
+          studentId: "{{ session.user.student_id }}",
+          birthday: "{{ session.user.birthday }}",
+          gender: "{{ session.user.gender }}",
+          status: "{{ session.user.status }}",
+          email: "{{ session.user.email }}"
+        };
+        
+        // currentUser 설정 (로그인한 사용자의 학번)
+        localStorage.setItem('currentUser', sessionUser.studentId);
+        
+        // userProfile 저장 (마이페이지 표시용)
+        localStorage.setItem('userProfile', JSON.stringify(sessionUser));
+        
+        console.log('로그인 사용자 정보가 localStorage에 저장되었습니다:', sessionUser);
+      } catch (e) {
+        console.error('사용자 정보 localStorage 저장 실패:', e);
+      }
+      {% endif %}
+      
       loadAnonProfile();
       loadUserProfile();
       loadMyActivity();
     });
 
-    // 로그아웃 (로그인 체크 제거로 인해 단순히 데이터 초기화만 수행)
+    // 로그아웃
     function handleLogout() {
-      if (confirm('데이터를 초기화하시겠습니까?')) {
+      if (confirm('로그아웃하시겠습니까?')) {
+        // localStorage 초기화
         localStorage.removeItem('isLoggedIn');
         localStorage.removeItem('currentUser');
-        localStorage.removeItem('anonProfile');
         localStorage.removeItem('userProfile');
-        alert('데이터가 초기화되었습니다.');
-        window.location.href = '/';
+        // 주의: anonProfile과 activity는 유지 (다음 로그인 시 사용 가능)
+        
+        // 서버 로그아웃 처리
+        window.location.href = "{{ url_for('logout') }}";
       }
     }
 

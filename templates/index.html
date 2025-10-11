@@ -89,6 +89,24 @@
     </div>
   </header>
 
+  <!-- Flask Flash 메시지 표시 -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="alert alert-{{ category }}" role="alert" style="position: fixed; top: 100px; left: 50%; transform: translateX(-50%); z-index: 9999; min-width: 300px; max-width: 600px; padding: 12px 16px; border-radius: 10px; {% if category == 'success' %}background-color: #d1fae5; color: #065f46; border: 1px solid #6ee7b7;{% elif category == 'error' %}background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;{% else %}background-color: #dbeafe; color: #1e40af; border: 1px solid #93c5fd;{% endif %}">
+          {{ message }}
+          <button type="button" onclick="this.parentElement.style.display='none'" style="float: right; background: none; border: none; font-size: 20px; cursor: pointer; line-height: 1; padding: 0; margin-left: 10px;">&times;</button>
+        </div>
+        <script>
+          setTimeout(function() {
+            const alertEl = document.querySelector('.alert.alert-{{ category }}');
+            if (alertEl) alertEl.style.display = 'none';
+          }, 5000);
+        </script>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
   <section class="max-w-6xl mx-auto px-4 pt-8 pb-6 relative" style="margin-top: 80px;">
     <div class="floaters">
       <div class="floater" style="left:10%; bottom:0; animation-duration:8s;">💬</div>

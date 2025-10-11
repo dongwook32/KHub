@@ -11,6 +11,7 @@
    <link rel="stylesheet" href="{{ url_for("static", filename="css/nav.css") }}">
   <script>
     tailwind.config = {
+      darkMode: 'class',
       theme: {
         extend: {
           colors: { peach: '#FFC8B2', peachDeep: '#FF9F80', cream: '#FFF7F2', cocoa:'#6B7280', ink:'#1F2937', mint:'#B7F4E6', lemon:'#FFF3A3' },
@@ -1300,7 +1301,7 @@
               <div class="my-profile-bio" id="myProfileBio">새로운 친구를 만나고 싶어요!</div>
                             </div>
             <div class="my-profile-actions">
-              <button class="my-profile-edit-btn" onclick="window.location.href='/profile-setup'">수정</button>
+              <button class="my-profile-edit-btn" onclick="window.spaRouter.navigateTo('/profile-setup')">수정</button>
                         </div>
           </div>
                                 </div>
@@ -1478,16 +1479,14 @@
     </footer>
 
     <script>
-    // 익명 프로필 로드 (Flask 세션에서 전달받음)
+    // 익명 프로필 로드
     function loadAnonProfile() {
       try {
-        // Flask 템플릿에서 전달된 프로필 데이터
-        const profile = {{ anon_profile | tojson | safe }};
-        
-        if (profile && profile.nickname) {
+        const profile = JSON.parse(localStorage.getItem('anonProfile') || 'null');
+        if (profile) {
           // 마이프로필 카드 업데이트
           document.getElementById('myProfileName').textContent = profile.nickname || '익명의친구';
-          document.getElementById('myProfileDetails').textContent = `${profile.year} · ${profile.gender}`;
+          document.getElementById('myProfileDetails').textContent = `${profile.year}학번 · ${profile.gender}`;
           document.getElementById('myProfileBio').textContent = profile.bio || '새로운 친구를 만나고 싶어요!';
           
           // 관심사 목록 업데이트
@@ -1596,6 +1595,9 @@
             
             saveChatData();
             updateRoomListUI();
+        } else {
+            // 기존 방인 경우 참여자 수 증가
+            incrementParticipantCount(interest);
         }
     }
 
@@ -1772,8 +1774,8 @@
                 return;
             }
             
-            // 현재 사용자의 성별 정보 가져오기 (Flask 세션에서)
-            const currentProfile = {{ anon_profile | tojson | safe }};
+            // 현재 사용자의 성별 정보 가져오기
+            const currentProfile = JSON.parse(localStorage.getItem('anonProfile') || 'null');
             const currentUserGender = currentProfile?.gender || '남자';
             
             // 이성 프로필만 필터링
@@ -1810,8 +1812,8 @@
                 return;
             }
             
-            // 현재 사용자의 성별 정보 가져오기 (Flask 세션에서)
-            const currentProfile = {{ anon_profile | tojson | safe }};
+            // 현재 사용자의 성별 정보 가져오기
+            const currentProfile = JSON.parse(localStorage.getItem('anonProfile') || 'null');
             const currentUserGender = currentProfile?.gender || '남자';
             const currentUserNickname = currentProfile?.nickname || '익명의친구';
             
@@ -2106,6 +2108,12 @@
             document.getElementById('chatHeader').textContent = roomName;
             document.getElementById('chatContent').style.display = 'none';
             document.getElementById('chatRoom').style.display = 'block';
+            
+            // 관심분야 방인 경우 참여자 수 증가
+            const roomData = chatData.roomList.find(room => room.name === roomName);
+            if (roomData && roomData.type === 'interest') {
+                incrementParticipantCount(roomName);
+            }
             
             // 참여자 수 표시 (그룹 채팅방인 경우에만)
             const participantCount = roomParticipants[roomName]?.count || 0;
@@ -2736,15 +2744,34 @@
       });
     }
 
-    // 익명 프로필 체크 함수 (Flask에서 이미 세션 체크 완료)
+    // 익명 프로필 체크 함수
     function checkAnonProfile() {
-      // Flask에서 세션이 없으면 이미 /profile-setup으로 리디렉트됨
-      // 이 페이지에 접근했다는 것은 세션이 있다는 의미
-      return true;
+      try {
+        const profile = JSON.parse(localStorage.getItem('anonProfile') || 'null');
+        
+        // 프로필이 없거나 필수 정보가 누락된 경우
+        if (!profile || !profile.year || !profile.gender || !profile.interests || profile.interests.length === 0) {
+          // 프로필 설정 페이지로 리다이렉트
+          alert('랜덤 매칭을 이용하려면 먼저 익명 프로필을 설정해주세요!');
+          window.spaRouter.navigateTo('/profile-setup');
+          return false;
+        }
+        return true;
+      } catch (e) {
+        console.error('프로필 체크 실패:', e);
+        alert('랜덤 매칭을 이용하려면 먼저 익명 프로필을 설정해주세요!');
+        window.spaRouter.navigateTo('/profile-setup');
+        return false;
+      }
     }
 
     // 이벤트 리스너
     document.addEventListener('DOMContentLoaded', function() {
+      // 익명 프로필 체크
+      if (!checkAnonProfile()) {
+        return; // 프로필이 없으면 초기화 중단
+      }
+      
       // 년도 설정
       document.getElementById('year').textContent = new Date().getFullYear();
       

@@ -45,14 +45,44 @@ function toggleLike(postId) {
   const post = posts.find(p => p.id === postId);
   if (!post) return;
   
+  const currentUser = localStorage.getItem('currentUser');
+  
   if (likedPosts.has(postId)) {
     // 좋아요 취소
     likedPosts.delete(postId);
     post.likes = Math.max(0, post.likes - 1);
+    
+    // localStorage에서 제거
+    if (currentUser) {
+      try {
+        const activity = JSON.parse(localStorage.getItem(`activity_${currentUser}`) || '{"posts":[],"comments":[],"likes":[],"commentLikes":[]}');
+        activity.likes = activity.likes.filter(like => like.postId !== postId);
+        localStorage.setItem(`activity_${currentUser}`, JSON.stringify(activity));
+      } catch (e) {
+        console.error('좋아요 기록 제거 실패:', e);
+      }
+    }
   } else {
     // 좋아요 추가
     likedPosts.add(postId);
     post.likes += 1;
+    
+    // localStorage에 추가
+    if (currentUser) {
+      try {
+        const activity = JSON.parse(localStorage.getItem(`activity_${currentUser}`) || '{"posts":[],"comments":[],"likes":[],"commentLikes":[]}');
+        activity.likes.unshift({
+          id: Date.now(),
+          postId: postId,
+          postTitle: post.title,
+          postAuthor: post.author,
+          date: new Date().toISOString()
+        });
+        localStorage.setItem(`activity_${currentUser}`, JSON.stringify(activity));
+      } catch (e) {
+        console.error('좋아요 기록 저장 실패:', e);
+      }
+    }
   }
   
   // UI 업데이트
@@ -105,14 +135,45 @@ function toggleCommentLike(commentId) {
   const comment = comments.find(c => c.id === commentId);
   if (!comment) return;
   
+  const currentUser = localStorage.getItem('currentUser');
+  
   if (likedComments.has(commentId)) {
     // 좋아요 취소
     likedComments.delete(commentId);
     comment.likes = Math.max(0, comment.likes - 1);
+    
+    // localStorage에서 제거
+    if (currentUser) {
+      try {
+        const activity = JSON.parse(localStorage.getItem(`activity_${currentUser}`) || '{"posts":[],"comments":[],"likes":[],"commentLikes":[]}');
+        activity.commentLikes = activity.commentLikes.filter(like => like.commentId !== commentId);
+        localStorage.setItem(`activity_${currentUser}`, JSON.stringify(activity));
+      } catch (e) {
+        console.error('댓글 좋아요 기록 제거 실패:', e);
+      }
+    }
   } else {
     // 좋아요 추가
     likedComments.add(commentId);
     comment.likes += 1;
+    
+    // localStorage에 추가
+    if (currentUser) {
+      try {
+        const activity = JSON.parse(localStorage.getItem(`activity_${currentUser}`) || '{"posts":[],"comments":[],"likes":[],"commentLikes":[]}');
+        activity.commentLikes.unshift({
+          id: Date.now(),
+          commentId: commentId,
+          commentContent: comment.content,
+          commentAuthor: comment.author,
+          postId: comment.postId,
+          date: new Date().toISOString()
+        });
+        localStorage.setItem(`activity_${currentUser}`, JSON.stringify(activity));
+      } catch (e) {
+        console.error('댓글 좋아요 기록 저장 실패:', e);
+      }
+    }
   }
   
   // UI 업데이트
@@ -1130,6 +1191,52 @@ function viewPost(postId) {
   renderPostDetail(post, postComments);
 }
 
+// ===== 게시글 삭제 =====
+function deletePost(postId) {
+  if (!confirm('정말 이 게시글을 삭제하시겠습니까?')) {
+    return;
+  }
+  
+  // 게시글 찾기
+  const postIndex = posts.findIndex(p => p.id === postId);
+  if (postIndex === -1) {
+    alert('게시글을 찾을 수 없습니다.');
+    return;
+  }
+  
+  // 게시글 삭제
+  const deletedPost = posts.splice(postIndex, 1)[0];
+  
+  // 해당 게시글의 댓글들도 삭제
+  comments = comments.filter(c => c.postId !== postId);
+  
+  // localStorage에서 삭제 (마이페이지 활동 기록)
+  const currentUser = localStorage.getItem('currentUser');
+  if (currentUser) {
+    try {
+      const activity = JSON.parse(localStorage.getItem(`activity_${currentUser}`) || '{"posts":[],"comments":[],"likes":[],"commentLikes":[]}');
+      
+      // 내가 작성한 글 목록에서 삭제
+      activity.posts = activity.posts.filter(p => p.id !== postId);
+      
+      // 다른 사람이 좋아요한 글 목록에서도 삭제
+      activity.likes = activity.likes.filter(l => l.postId !== postId);
+      
+      // 댓글도 삭제
+      activity.comments = activity.comments.filter(c => c.postId !== postId);
+      
+      localStorage.setItem(`activity_${currentUser}`, JSON.stringify(activity));
+    } catch (e) {
+      console.error('활동 기록 삭제 실패:', e);
+    }
+  }
+  
+  // 목록으로 돌아가기
+  backToList();
+  
+  alert('게시글이 삭제되었습니다.');
+}
+
 // ===== 게시글 상세 화면 렌더링 =====
 function renderPostDetail(post, postComments) {
   const detailView = document.getElementById('postDetailView');
@@ -1154,7 +1261,15 @@ function renderPostDetail(post, postComments) {
         ${department ? `<span class="badge badge-outline">${department.name}</span>` : ''}
       </div>
       
-      <h1 class="detail-title">${post.title}</h1>
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;">
+        <h1 class="detail-title" style="flex: 1; margin: 0;">${post.title}</h1>
+        <button onclick="deletePost('${post.id}')" style="padding: 8px 16px; background: #ef4444; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; white-space: nowrap; transition: all 0.3s ease;" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">
+          <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display: inline-block; vertical-align: middle; margin-right: 4px;">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+          </svg>
+          삭제
+        </button>
+      </div>
       
       <div class="detail-meta">${post.author} · ${getYearDisplay(post.year)} · ${formatTime(post.createdAt)}</div>
       
@@ -1278,6 +1393,26 @@ function submitDetailComment(event, postId) {
     post.comments++;
   }
   
+  // 마이페이지 활동 기록에 추가
+  const currentUser = localStorage.getItem('currentUser');
+  if (currentUser) {
+    try {
+      const activity = JSON.parse(localStorage.getItem(`activity_${currentUser}`) || '{"posts":[],"comments":[],"likes":[],"commentLikes":[]}');
+      
+      activity.comments.unshift({
+        id: newComment.id,
+        content: newComment.content,
+        postTitle: post ? post.title : '삭제된 게시글',
+        postId: postId,
+        date: newComment.createdAt
+      });
+      
+      localStorage.setItem(`activity_${currentUser}`, JSON.stringify(activity));
+    } catch (e) {
+      console.error('활동 기록 저장 실패:', e);
+    }
+  }
+  
   // 입력 필드 초기화
   input.value = '';
   anonymousCheckbox.checked = false;
@@ -1389,9 +1524,14 @@ function submitPost(event) {
     item.getAttribute('data-tag')
   );
   
+  // 학과 정보 가져오기
+  const dept = departments.find(d => d.id === department);
+  const categoryName = dept ? dept.name : '자유게시판';
+  
   const newPost = {
     id: 'p' + Date.now(),
     title: title,
+    content: content, // 내용도 저장
     author: '익명' + generateAnonymousId(),
     year: isAnonymous ? null : 24,
     createdAt: new Date().toISOString(),
@@ -1401,14 +1541,37 @@ function submitPost(event) {
     tags: tags,
     boardId: currentBoard,
     departmentId: department || null,
-    type: type
+    type: type,
+    category: categoryName
   };
   
   posts.unshift(newPost);
   
+  // 마이페이지 활동 기록에 추가
+  const currentUser = localStorage.getItem('currentUser');
+  if (currentUser) {
+    try {
+      const activity = JSON.parse(localStorage.getItem(`activity_${currentUser}`) || '{"posts":[],"comments":[],"likes":[],"commentLikes":[]}');
+      
+      activity.posts.unshift({
+        id: newPost.id,
+        title: newPost.title,
+        content: newPost.content,
+        category: newPost.category,
+        date: newPost.createdAt,
+        likes: 0
+      });
+      
+      localStorage.setItem(`activity_${currentUser}`, JSON.stringify(activity));
+    } catch (e) {
+      console.error('활동 기록 저장 실패:', e);
+    }
+  }
+  
   hideWriteModal();
   filterAndDisplayPosts();
   
+  alert('게시글이 작성되었습니다!');
   console.log('게시글 작성됨:', newPost);
 }
 

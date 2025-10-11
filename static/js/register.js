@@ -118,7 +118,21 @@
   }
 
   /**
-   * 학번 검증 (숫자만, 정확히 9자)
+   * 학번 중복 체크 (localStorage 사용)
+   */
+  function isStudentIdDuplicate(studentId) {
+    try {
+      // localStorage에서 등록된 학번 목록 가져오기
+      const registeredIds = JSON.parse(localStorage.getItem('registered_student_ids') || '[]');
+      return registeredIds.includes(studentId);
+    } catch (e) {
+      console.error('학번 중복 체크 실패:', e);
+      return false;
+    }
+  }
+
+  /**
+   * 학번 검증 (숫자만, 정확히 9자, 중복 체크)
    */
   function validateStudentId() {
     const studentId = document.getElementById('student_id');
@@ -132,6 +146,12 @@
     
     if (!pattern.test(value)) {
       showError('student_id', '학번은 숫자 9자리로 입력해주세요.');
+      return false;
+    }
+    
+    // 학번 중복 체크
+    if (isStudentIdDuplicate(value)) {
+      showError('student_id', '이미 존재하는 학번입니다. 다른 학번으로 회원가입해주세요.');
       return false;
     }
     
@@ -398,7 +418,22 @@
         return false;
       }
       
-      // 검증 성공 - 폼 제출
+      // 검증 성공 - localStorage에 학번만 저장 (중복 체크용)
+      const studentId = document.getElementById('student_id').value.trim();
+      try {
+        const registeredIds = JSON.parse(localStorage.getItem('registered_student_ids') || '[]');
+        if (!registeredIds.includes(studentId)) {
+          registeredIds.push(studentId);
+          localStorage.setItem('registered_student_ids', JSON.stringify(registeredIds));
+        }
+        
+        // 주의: 회원가입 시에는 currentUser를 설정하지 않음
+        // 로그인 후에만 currentUser와 userProfile이 설정됨
+      } catch (e) {
+        console.error('localStorage 저장 실패:', e);
+      }
+      
+      // 폼 제출
       form.classList.add('form-loading');
       
       // 실제 제출
