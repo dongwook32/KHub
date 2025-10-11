@@ -716,7 +716,7 @@
     }
 
     // 익명카드 저장
-    function saveAnonProfile() {
+    async function saveAnonProfile() {
       const nickname = document.getElementById('editAnonNickname').value.trim() || '익명의친구';
       const year = document.getElementById('editAnonYear').value;
       const gender = document.querySelector('.gender-btn.active')?.dataset.gender || '남자';
@@ -741,11 +741,33 @@
       }
       
       const anonProfile = { nickname, year, gender, bio, interests };
-      localStorage.setItem('anonProfile', JSON.stringify(anonProfile));
       
-      loadAnonProfile(); // UI 업데이트
-      closeModal('profileModal');
-      alert('익명카드가 저장되었습니다.');
+      try {
+        // 서버에 익명 프로필 저장
+        const response = await fetch("{{ url_for('save_anon_profile_api') }}", {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(anonProfile)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          // localStorage에도 저장
+          localStorage.setItem('anonProfile', JSON.stringify(anonProfile));
+          
+          loadAnonProfile(); // UI 업데이트
+          closeModal('profileModal');
+          alert('익명카드가 저장되었습니다.');
+        } else {
+          alert(result.message || '익명카드 저장 중 오류가 발생했습니다.');
+        }
+      } catch (error) {
+        console.error('익명카드 저장 실패:', error);
+        alert('익명카드 저장 중 오류가 발생했습니다. 다시 시도해주세요.');
+      }
     }
 
     // 모달 열 때 기존 데이터 로드

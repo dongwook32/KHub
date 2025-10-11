@@ -7,6 +7,7 @@ app.secret_key = 'change-me'
 
 # 데이터 저장 파일 경로
 DATA_FILE = 'registered_users.json'
+ANON_PROFILES_FILE = 'anon_profiles.json'
 
 def load_users():
     """등록된 사용자 정보 불러오기"""
@@ -31,6 +32,25 @@ def is_student_id_duplicate(student_id):
     """학번 중복 체크"""
     users = load_users()
     return any(user.get('student_id') == student_id for user in users)
+
+def load_anon_profiles():
+    """익명 프로필 불러오기"""
+    if os.path.exists(ANON_PROFILES_FILE):
+        try:
+            with open(ANON_PROFILES_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except:
+            return []
+    return []
+
+def save_anon_profiles(profiles):
+    """익명 프로필 저장하기"""
+    try:
+        with open(ANON_PROFILES_FILE, 'w', encoding='utf-8') as f:
+            json.dump(profiles, f, ensure_ascii=False, indent=2)
+        return True
+    except:
+        return False
 
 @app.route('/')
 def index():
@@ -287,6 +307,11 @@ def delete_account():
     if not save_users(users):
         return jsonify({'success': False, 'message': '회원 탈퇴 중 오류가 발생했습니다.'}), 500
     
+    # 익명 프로필도 삭제
+    anon_profiles = load_anon_profiles()
+    anon_profiles = [p for p in anon_profiles if p.get('student_id') != student_id]
+    save_anon_profiles(anon_profiles)
+    
     # 세션 삭제
     session.clear()
     
@@ -295,6 +320,120 @@ def delete_account():
         'message': '회원 탈퇴가 완료되었습니다. 그동안 이용해주셔서 감사합니다.',
         'redirect': url_for('index')
     })
+
+@app.route('/api/anon-profiles', methods=['GET'])
+def get_anon_profiles():
+    """익명 프로필 목록 조회 (자신 제외)"""
+    # 로그인 체크
+    if 'user' not in session or not session.get('user'):
+        return jsonify({'success': False, 'message': '로그인이 필요합니다.'}), 401
+    
+    current_user = session.get('user', {})
+    current_student_id = current_user.get('student_id')
+    
+    # 모든 익명 프로필 로드
+    all_profiles = load_anon_profiles()
+    
+    # 자신의 프로필 제외
+    other_profiles = [p for p in all_profiles if p.get('student_id') != current_student_id]
+    
+    # student_id 정보는 제거하고 반환 (보안)
+    safe_profiles = []
+    for profile in other_profiles:
+        safe_profiles.append({
+            'nickname': profile.get('nickname', '익명의친구'),
+            'year': profile.get('year', ''),
+            'gender': profile.get('gender', ''),
+            'bio': profile.get('bio', ''),
+            'interests': profile.get('interests', []),
+            'avatar': profile.get('avatar', '익')
+        })
+    
+    return jsonify({'success': True, 'profiles': safe_profiles})
+
+@app.route('/api/interest-counts', methods=['GET'])
+def get_interest_counts():
+    """관심사별 참여자 수 및 닉네임 목록 조회"""
+    # 로그인 체크
+    if 'user' not in session or not session.get('user'):
+        return jsonify({'success': False, 'message': '로그인이 필요합니다.'}), 401
+    
+    # 모든 익명 프로필 로드
+    all_profiles = load_anon_profiles()
+    
+    # 관심사별 카운트 및 닉네임 목록 계산
+    interest_counts = {}
+    interest_users = {}
+    
+    for profile in all_profiles:
+        interests = profile.get('interests', [])
+        nickname = profile.get('nickname', '익명의친구')
+        
+        for interest in interests:
+            # 카운트 증가
+            if interest not in interest_counts:
+                interest_counts[interest] = 0
+            interest_counts[interest] += 1
+            
+            # 닉네임 목록에 추가
+            if interest not in interest_users:
+                interest_users[interest] = []
+            interest_users[interest].append(nickname)
+    
+    return jsonify({
+        'success': True, 
+        'interest_counts': interest_counts,
+        'interest_users': interest_users
+    })
+
+@app.route('/api/save-anon-profile', methods=['POST'])
+def save_anon_profile_api():
+    """익명 프로필 저장 API (마이페이지에서 사용)"""
+    # 로그인 체크
+    if 'user' not in session or not session.get('user'):
+        return jsonify({'success': False, 'message': '로그인이 필요합니다.'}), 401
+    
+    current_user = session.get('user', {})
+    student_id = current_user.get('student_id')
+    
+    if not student_id:
+        return jsonify({'success': False, 'message': '사용자 정보를 찾을 수 없습니다.'}), 400
+    
+    data = request.get_json()
+    nickname = data.get('nickname', '익명의친구')
+    year = data.get('year')
+    gender = data.get('gender')
+    bio = data.get('bio', '')
+    interests = data.get('interests', [])
+    
+    if not year or not gender or not interests:
+        return jsonify({'success': False, 'message': '필수 정보를 입력해주세요.'}), 400
+    
+    # 익명 프로필 저장
+    profiles = load_anon_profiles()
+    
+    # 기존 프로필 업데이트 또는 새로 추가
+    existing_index = next((i for i, p in enumerate(profiles) if p.get('student_id') == student_id), None)
+    
+    profile_data = {
+        'student_id': student_id,
+        'nickname': nickname,
+        'year': year,
+        'gender': gender,
+        'bio': bio,
+        'interests': interests,
+        'avatar': nickname[0] if nickname else '익'
+    }
+    
+    if existing_index is not None:
+        profiles[existing_index] = profile_data
+    else:
+        profiles.append(profile_data)
+    
+    if not save_anon_profiles(profiles):
+        return jsonify({'success': False, 'message': '프로필 저장 중 오류가 발생했습니다.'}), 500
+    
+    return jsonify({'success': True, 'message': '익명 프로필이 저장되었습니다.'})
 
 @app.route('/profile-setup', methods=['GET', 'POST'])
 def profile_setup():
@@ -324,6 +463,33 @@ def profile_setup():
             'bio': bio,
             'interests': interests
         }
+        
+        # 파일에도 저장 (랜덤채팅에서 사용)
+        current_user = session.get('user', {})
+        student_id = current_user.get('student_id')
+        
+        if student_id:
+            profiles = load_anon_profiles()
+            
+            # 기존 프로필 업데이트 또는 새로 추가
+            existing_index = next((i for i, p in enumerate(profiles) if p.get('student_id') == student_id), None)
+            
+            profile_data = {
+                'student_id': student_id,
+                'nickname': nickname,
+                'year': year,
+                'gender': gender,
+                'bio': bio,
+                'interests': interests,
+                'avatar': nickname[0] if nickname else '익'
+            }
+            
+            if existing_index is not None:
+                profiles[existing_index] = profile_data
+            else:
+                profiles.append(profile_data)
+            
+            save_anon_profiles(profiles)
         
         flash('익명 프로필이 저장되었습니다!', 'success')
         # 채팅 페이지로 리디렉트

@@ -208,19 +208,30 @@ function isCommentLiked(commentId) {
 }
 
 // ===== 학번 표시 함수 =====
-function getYearDisplay(year) {
+function getYearDisplay(year, status) {
   if (!year) return '익명';
   
-  const currentYear = new Date().getFullYear();
-  const admissionYear = 2000 + year;
-  const grade = currentYear - admissionYear + 1;
+  // year가 문자열 형태일 경우 (예: "22학번") 숫자만 추출
+  let yearNum = year;
+  if (typeof year === 'string') {
+    yearNum = parseInt(year.replace(/[^0-9]/g, ''));
+  }
   
-  let status = '';
-  if (grade <= 0) status = '신'; // 신입생
-  else if (grade >= 5) status = '졸'; // 졸업생
-  else status = '재'; // 재학생
+  // status가 전달되면 사용, 아니면 학년으로 계산
+  let statusText = '';
+  if (status) {
+    statusText = status;
+  } else {
+    const currentYear = new Date().getFullYear();
+    const admissionYear = 2000 + yearNum;
+    const grade = currentYear - admissionYear + 1;
+    
+    if (grade <= 0) statusText = '신입생';
+    else if (grade >= 5) statusText = '졸업생';
+    else statusText = '재학생';
+  }
   
-  return `${year}학번(${status})`;
+  return `${yearNum}학번 ${statusText}`;
 }
 
 // ===== 학과 및 게시판 정보 =====
@@ -1136,7 +1147,7 @@ function displayPosts(postsToShow) {
               ${post.departmentId ? `<span class="badge badge-outline">${departments.find(d => d.id === post.departmentId)?.name || post.departmentId}</span>` : ''}
             </div>
             <div class="post-title" onclick="viewPost('${post.id}')">${post.title}</div>
-            <div class="post-meta">${post.author} · ${getYearDisplay(post.year)} · ${formatTime(post.createdAt)}</div>
+            <div class="post-meta">${post.author} · ${getYearDisplay(post.year, post.status)} · ${formatTime(post.createdAt)}</div>
           </div>
           <div class="post-stats">
             <div class="stat-item">
@@ -1271,7 +1282,7 @@ function renderPostDetail(post, postComments) {
         </button>
       </div>
       
-      <div class="detail-meta">${post.author} · ${getYearDisplay(post.year)} · ${formatTime(post.createdAt)}</div>
+      <div class="detail-meta">${post.author} · ${getYearDisplay(post.year, post.status)} · ${formatTime(post.createdAt)}</div>
       
       <div class="detail-stats">
         <div class="stat-item like-btn ${isLiked(post.id) ? 'liked' : ''}" onclick="toggleLike('${post.id}')">
@@ -1310,7 +1321,7 @@ function renderPostDetail(post, postComments) {
         <div class="comments-list">
           ${postComments.map(comment => `
             <div class="comment-item" data-comment-id="${comment.id}">
-              <div class="comment-meta">${comment.author} · ${getYearDisplay(comment.year)} · ${formatTime(comment.createdAt)}</div>
+              <div class="comment-meta">${comment.author} · ${getYearDisplay(comment.year, comment.status)} · ${formatTime(comment.createdAt)}</div>
               <div class="comment-content">${comment.content}</div>
               <div class="comment-actions">
                 <button class="comment-like-btn ${isCommentLiked(comment.id) ? 'liked' : ''}" onclick="toggleCommentLike('${comment.id}')">
@@ -1374,11 +1385,33 @@ function submitDetailComment(event, postId) {
   const content = input.value.trim();
   if (!content) return;
   
+  // 사용자 정보 가져오기
+  const userProfile = JSON.parse(localStorage.getItem('userProfile') || 'null');
+  const anonProfile = JSON.parse(localStorage.getItem('anonProfile') || 'null');
+  
+  // 학번에서 입학년도 추출
+  let yearDisplay = null;
+  let statusDisplay = null;
+  
+  if (!anonymousCheckbox.checked && userProfile && userProfile.studentId) {
+    const studentId = userProfile.studentId;
+    if (studentId.length >= 4) {
+      const admissionYear = studentId.substring(0, 4); // 예: "2022"
+      yearDisplay = admissionYear.substring(2); // 마지막 2자리: "22"
+    }
+    statusDisplay = userProfile.status || '재학생';
+  } else if (anonymousCheckbox.checked && anonProfile && anonProfile.year) {
+    // 익명 프로필에서 학번 정보 가져오기
+    yearDisplay = anonProfile.year.replace(/[^0-9]/g, ''); // "22학번" -> "22"
+    statusDisplay = null; // 익명일 때는 상태 표시 안함
+  }
+  
   const newComment = {
     id: 'c' + Date.now(),
     postId: postId,
     author: anonymousCheckbox.checked ? '익명' + generateAnonymousId() : '익명' + generateAnonymousId(),
-    year: anonymousCheckbox.checked ? null : 24,
+    year: yearDisplay ? parseInt(yearDisplay) : null,
+    status: statusDisplay,
     createdAt: new Date().toISOString(),
     content: content,
     isAnonymous: anonymousCheckbox.checked,
@@ -1528,12 +1561,34 @@ function submitPost(event) {
   const dept = departments.find(d => d.id === department);
   const categoryName = dept ? dept.name : '자유게시판';
   
+  // 사용자 정보 가져오기
+  const userProfile = JSON.parse(localStorage.getItem('userProfile') || 'null');
+  const anonProfile = JSON.parse(localStorage.getItem('anonProfile') || 'null');
+  
+  // 학번에서 입학년도 추출 (9자리 학번의 첫 4자리가 입학년도)
+  let yearDisplay = null;
+  let statusDisplay = null;
+  
+  if (!isAnonymous && userProfile && userProfile.studentId) {
+    const studentId = userProfile.studentId;
+    if (studentId.length >= 4) {
+      const admissionYear = studentId.substring(0, 4); // 예: "2022"
+      yearDisplay = admissionYear.substring(2); // 마지막 2자리: "22"
+    }
+    statusDisplay = userProfile.status || '재학생';
+  } else if (isAnonymous && anonProfile && anonProfile.year) {
+    // 익명 프로필에서 학번 정보 가져오기
+    yearDisplay = anonProfile.year.replace(/[^0-9]/g, ''); // "22학번" -> "22"
+    statusDisplay = null; // 익명일 때는 상태 표시 안함
+  }
+  
   const newPost = {
     id: 'p' + Date.now(),
     title: title,
     content: content, // 내용도 저장
     author: '익명' + generateAnonymousId(),
-    year: isAnonymous ? null : 24,
+    year: yearDisplay ? parseInt(yearDisplay) : null,
+    status: statusDisplay,
     createdAt: new Date().toISOString(),
     views: 0,
     likes: 0,

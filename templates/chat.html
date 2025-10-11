@@ -1498,8 +1498,8 @@
         } else { 
           // 기본값 설정
           document.getElementById('myProfileName').textContent = '익명 프로필';
-          document.getElementById('myProfileDetails').textContent = '23학번 · 남자';
-          document.getElementById('myProfileBio').textContent = '새로운 친구를 만나고 싶어요!';
+          document.getElementById('myProfileDetails').textContent = '프로필 미설정';
+          document.getElementById('myProfileBio').textContent = '익명카드를 설정해주세요.';
           
           // 관심사 목록 업데이트
           updateInterestList([]);
@@ -1512,11 +1512,46 @@
         console.error('프로필 로드 실패:', e);
         // 기본값 설정
         document.getElementById('myProfileName').textContent = '익명 프로필';
-        document.getElementById('myProfileDetails').textContent = '23학번 · 남자';
-        document.getElementById('myProfileBio').textContent = '새로운 친구를 만나고 싶어요!';
+        document.getElementById('myProfileDetails').textContent = '프로필 미설정';
+        document.getElementById('myProfileBio').textContent = '익명카드를 설정해주세요.';
       }
     }
 
+    // 서버에서 관심사별 참여자 수 가져오기
+    async function loadInterestCounts() {
+      try {
+        const response = await fetch("{{ url_for('get_interest_counts') }}");
+        const result = await response.json();
+        
+        if (result.success && result.interest_counts) {
+          // roomParticipants 업데이트
+          Object.keys(result.interest_counts).forEach(interest => {
+            if (!roomParticipants[interest]) {
+              roomParticipants[interest] = {
+                count: 0,
+                users: [],
+                unreadCount: 0
+              };
+            }
+            roomParticipants[interest].count = result.interest_counts[interest];
+            
+            // 닉네임 목록도 업데이트
+            if (result.interest_users && result.interest_users[interest]) {
+              roomParticipants[interest].users = result.interest_users[interest];
+            }
+          });
+          
+          // UI 업데이트 (현재 로그인한 사용자의 관심사 목록 다시 렌더링)
+          const profile = JSON.parse(localStorage.getItem('anonProfile') || 'null');
+          if (profile && profile.interests) {
+            updateInterestList(profile.interests);
+          }
+        }
+      } catch (error) {
+        console.error('관심사 카운트 로드 오류:', error);
+      }
+    }
+    
     // 관심사 목록 업데이트
     function updateInterestList(interests) {
       const interestList = document.getElementById('interestList');
@@ -1576,6 +1611,15 @@
 
     // 관심사 방을 채팅방 목록에 추가
     function addInterestRoom(interest) {
+        // roomParticipants 초기화 (없으면)
+        if (!roomParticipants[interest]) {
+            roomParticipants[interest] = {
+                count: 0,
+                users: [],
+                unreadCount: 0
+            };
+        }
+        
         // 이미 존재하는 방인지 확인
         const existingRoom = chatData.roomList.find(room => room.name === interest);
         if (!existingRoom) {
@@ -1589,31 +1633,19 @@
                 name: interest,
                 type: 'interest',
                 unreadCount: 0,
-                participantCount: roomParticipants[interest]?.count || 0,
+                participantCount: roomParticipants[interest].count,
                 createdAt: new Date().toISOString()
             });
             
             saveChatData();
             updateRoomListUI();
-        } else {
-            // 기존 방인 경우 참여자 수 증가
-            incrementParticipantCount(interest);
         }
     }
 
-    // 관심분야 방 참여자 수 증가
-    function incrementParticipantCount(interest) {
-        if (roomParticipants[interest]) {
-            roomParticipants[interest].count += 1;
-            // 채팅방 목록의 참여자 수 업데이트
-            const roomData = chatData.roomList.find(room => room.name === interest);
-            if (roomData) {
-                roomData.participantCount = roomParticipants[interest].count;
-                saveChatData();
-                updateRoomListUI();
-                updateInterestListUI(interest);
-            }
-        }
+    // 관심분야 방 참여자 수 증가 (제거 - 서버에서 실제 수를 가져옴)
+    async function incrementParticipantCount(interest) {
+        // 서버에서 최신 참여자 수를 다시 가져옴
+        await loadInterestCounts();
     }
 
     // 관심분야 목록 UI 업데이트
@@ -1635,11 +1667,7 @@
 
     // 기본 관심분야 방들을 초기화
     function initializeDefaultInterestRooms() {
-        const defaultInterests = ['운동', '독서']; // 이미지에 보이는 기본 관심분야들
-        
-        defaultInterests.forEach(interest => {
-            addInterestRoom(interest);
-        });
+        // 기본 관심분야 방 초기화 안함 (사용자가 직접 참여)
     }
 
 
@@ -1726,6 +1754,11 @@
             const isGroupChat = listId === 'groupList' || listId === 'interestList';
             const isInterestRoom = listId === 'interestList';
             
+            // 관심분야 방인 경우 실제 참여자 수 사용
+            if (isInterestRoom && roomParticipants[roomName]) {
+                participantCount = roomParticipants[roomName].count;
+            }
+            
             // 관심분야 방인 경우 이모지 추가
             let displayName = roomName;
             if (isInterestRoom) {
@@ -1734,7 +1767,7 @@
                     '게임': '🎮',
                     '음악': '🎵',
                     '영화': '🎬',
-                    '요리': '👨‍🍳',
+                    '카페': '☕',
                     '여행': '✈️',
                     '스터디': '📚',
                     '독서': '📖',
@@ -1860,13 +1893,20 @@
                 // 이성 프로필 중에서 랜덤 선택
                 matchedProfile = availableProfiles[Math.floor(Math.random() * availableProfiles.length)];
             } else {
-                // 기존 로직 (이성 필터링이 없는 경우)
-                const nicknames = ['익명의친구', '익명의학생', '익명의동료', '신비한친구', '알수없는누군가'];
-                const randomNickname = nicknames[Math.floor(Math.random() * nicknames.length)];
-                matchedProfile = { name: randomNickname };
+                alert('현재 매칭 가능한 상대가 없습니다.');
+                return;
             }
             
-            const roomName = matchedProfile.name;
+            const roomName = matchedProfile.nickname; // name 대신 nickname 사용
+            
+            // roomParticipants에 추가 (1:1 채팅용)
+            if (!roomParticipants[roomName]) {
+                roomParticipants[roomName] = {
+                    count: 2, // 나 + 상대방
+                    users: [roomName], // 상대방 닉네임
+                    unreadCount: 0
+                };
+            }
             
             // 채팅방 데이터에 추가
             if (!chatData.rooms[roomName]) {
@@ -2059,48 +2099,10 @@
         let currentRoom = null;
         
         // 랜덤 매칭 프로필 데이터
-        const randomProfiles = [
-            { name: '안녕', year: '23학번', gender: '남자', bio: '나도 좋아', avatar: '안', interests: ['운동', '음악'] },
-            { name: '민지', year: '22학번', gender: '여자', bio: '독서와 카페 좋아해요', avatar: '민', interests: ['독서', '영화'] },
-            { name: '철수', year: '21학번', gender: '남자', bio: '운동 같이 하실 분!', avatar: '철', interests: ['운동', '게임'] },
-            { name: '지현', year: '24학번', gender: '여자', bio: '영화 덕후에요', avatar: '지', interests: ['영화', '음악'] },
-            { name: '준호', year: '23학번', gender: '남자', bio: '게임 좋아해요', avatar: '준', interests: ['게임', '운동'] },
-            { name: '수진', year: '22학번', gender: '여자', bio: '요리 배우고 싶어요', avatar: '수', interests: ['요리', '독서'] }
-        ];
+        const randomProfiles = [];
         
         // 채팅방별 참여자 정보 (관심사별 그룹 채팅 - 인원수 제한 없음)
-        const roomParticipants = {
-            '운동': {
-                count: 12,
-                users: ['김철수', '이영희', '박민수', '최지영', '정현우', '한소영', '윤태호', '강미래', '임동현', '서유진', '조성민', '배수진'],
-                unreadCount: 0
-            },
-            '게임': {
-                count: 8,
-                users: ['최준호', '김가은', '이현수', '박서연', '정민재', '한지은', '윤성호', '강다은'],
-                unreadCount: 0
-            },
-            '음악': {
-                count: 15,
-                users: ['김하늘', '이준서', '박예린', '최민석', '정소영', '한지훈', '윤서현', '강민지', '임태현', '서유나', '조현우', '배서영', '김도현', '이수진', '박재민'],
-                unreadCount: 0
-            },
-            '영화': {
-                count: 10,
-                users: ['최유진', '김태민', '이서영', '박준호', '정미래', '한동현', '윤소영', '강현우', '임지은', '서민수'],
-                unreadCount: 0
-            },
-            '독서': {
-                count: 7,
-                users: ['조예준', '배서현', '김민재', '이유진', '박현수', '최지영', '한태호'],
-                unreadCount: 0
-            },
-            '요리': {
-                count: 9,
-                users: ['윤소영', '강민수', '임지훈', '서예린', '조현우', '배다은', '김태현', '이서영', '박준호'],
-                unreadCount: 0
-            }
-        };
+        const roomParticipants = {};
 
         // 채팅방 입장
         function enterRoom(roomName) {
@@ -2406,13 +2408,22 @@
             }
             
             // 그룹 채팅방이나 관심분야 방인 경우
-            if (currentRoom && roomParticipants[currentRoom]) {
+            if (currentRoom && roomParticipants[currentRoom] && roomParticipants[currentRoom].users.length > 0) {
                 const users = roomParticipants[currentRoom].users;
-                // 실제 사용자 닉네임 중에서 랜덤 선택
+                // 현재 사용자의 닉네임 제외
+                const currentUserNickname = JSON.parse(localStorage.getItem('anonProfile') || '{}').nickname || '나';
+                const otherUsers = users.filter(u => u !== currentUserNickname);
+                
+                if (otherUsers.length > 0) {
+                    // 다른 사용자 닉네임 중에서 랜덤 선택
+                    return otherUsers[Math.floor(Math.random() * otherUsers.length)];
+                }
+                
+                // 본인만 있는 경우
                 return users[Math.floor(Math.random() * users.length)];
             }
             
-            // 기본값
+            // 기본값 (참여자가 없는 경우)
             return '익명' + Math.floor(Math.random() * 100);
         }
 
@@ -2436,8 +2447,12 @@
       const participantsList = document.getElementById('participantsList');
       participantsList.innerHTML = '';
       
-      if (currentRoom && roomParticipants[currentRoom]) {
-        // 그룹 채팅방인 경우
+      // 현재 사용자 닉네임
+      const currentUserNickname = localStorage.getItem('anonProfile') ? 
+        JSON.parse(localStorage.getItem('anonProfile')).nickname : '익명의친구';
+      
+      if (currentRoom && roomParticipants[currentRoom] && roomParticipants[currentRoom].users.length > 0) {
+        // 그룹 채팅방 또는 관심분야 방인 경우
         const users = roomParticipants[currentRoom].users;
         
         users.forEach((user, index) => {
@@ -2445,10 +2460,12 @@
           participantItem.className = 'participant-item';
           participantItem.onclick = () => showParticipantProfile(user);
           
+          const isMe = user === currentUserNickname;
+          
           participantItem.innerHTML = `
             <div class="participant-avatar">👤</div>
             <div class="participant-info">
-              <div class="participant-name">${user}</div>
+              <div class="participant-name">${user}${isMe ? ' (나)' : ''}</div>
               <div class="participant-status">온라인</div>
             </div>
             <div class="participant-profile">프로필 보기</div>
@@ -2458,8 +2475,6 @@
         });
       } else {
         // 1:1 채팅방인 경우 (상대방과 나)
-        const currentUser = localStorage.getItem('anonProfile') ? 
-          JSON.parse(localStorage.getItem('anonProfile')).nickname : '익명의친구';
         const opponentName = currentRoom; // 1:1 채팅에서는 방 이름이 상대방 이름
         
         // 상대방 프로필
@@ -2480,12 +2495,12 @@
         // 내 프로필
         const myItem = document.createElement('div');
         myItem.className = 'participant-item';
-        myItem.onclick = () => showParticipantProfile(currentUser);
+        myItem.onclick = () => showParticipantProfile(currentUserNickname);
         
         myItem.innerHTML = `
           <div class="participant-avatar">👤</div>
           <div class="participant-info">
-            <div class="participant-name">${currentUser} (나)</div>
+            <div class="participant-name">${currentUserNickname} (나)</div>
             <div class="participant-status">온라인</div>
           </div>
           <div class="participant-profile">프로필 보기</div>
@@ -2525,32 +2540,20 @@
           interests: ['운동', '음악']
         };
       } else {
-        // 다른 사용자 프로필인 경우
-        const mockProfiles = {
-          '익명1': { year: '2024', gender: '남자', bio: '운동을 좋아하는 학생입니다.', interests: ['운동', '음악'] },
-          '익명2': { year: '2023', gender: '여자', bio: '독서와 영화를 즐깁니다.', interests: ['독서', '영화'] },
-          '익명3': { year: '2025', gender: '남자', bio: '게임과 요리를 좋아해요.', interests: ['게임', '요리'] },
-          '익명4': { year: '2024', gender: '여자', bio: '음악을 사랑합니다.', interests: ['음악', '운동'] },
-          '익명5': { year: '2023', gender: '남자', bio: '영화 감상을 좋아해요.', interests: ['영화', '독서'] },
-          '안녕': { year: '23학번', gender: '남자', bio: '나도 좋아', interests: ['운동', '음악'] },
-          '민지': { year: '22학번', gender: '여자', bio: '독서와 카페 좋아해요', interests: ['독서', '영화'] },
-          '철수': { year: '21학번', gender: '남자', bio: '운동 같이 하실 분!', interests: ['운동', '게임'] },
-          '지현': { year: '24학번', gender: '여자', bio: '영화 덕후에요', interests: ['영화', '음악'] },
-          '준호': { year: '23학번', gender: '남자', bio: '게임 좋아해요', interests: ['게임', '운동'] },
-          '수진': { year: '22학번', gender: '여자', bio: '요리 배우고 싶어요', interests: ['요리', '독서'] }
-        };
+        // 다른 사용자 프로필인 경우 - randomProfiles에서 찾기
+        const foundProfile = randomProfiles.find(p => p.nickname === nickname);
         
-        // 기본 프로필 정보 생성 (랜덤)
-        const defaultProfiles = [
-          { year: '2024', gender: '남자', bio: '새로운 친구를 만나고 싶어요!', interests: ['운동', '음악'] },
-          { year: '2023', gender: '여자', bio: '재미있는 대화를 좋아해요.', interests: ['독서', '영화'] },
-          { year: '2025', gender: '남자', bio: '게임과 요리를 좋아해요.', interests: ['게임', '요리'] },
-          { year: '2024', gender: '여자', bio: '음악을 사랑합니다.', interests: ['음악', '운동'] },
-          { year: '2023', gender: '남자', bio: '영화 감상을 좋아해요.', interests: ['영화', '독서'] }
-        ];
-        
-        const randomProfile = defaultProfiles[Math.floor(Math.random() * defaultProfiles.length)];
-        profile = mockProfiles[nickname] || randomProfile;
+        if (foundProfile) {
+          profile = foundProfile;
+        } else {
+          // 기본 프로필 (찾지 못한 경우)
+          profile = {
+            year: '익명',
+            gender: '비공개',
+            bio: '프로필 정보가 없습니다.',
+            interests: []
+          };
+        }
       }
       
       const profileContent = document.getElementById('participantProfileContent');
@@ -2678,28 +2681,54 @@
       }
     }
     
+    // 서버에서 익명 프로필 가져오기
+    async function loadRandomProfiles() {
+      try {
+        const response = await fetch("{{ url_for('get_anon_profiles') }}");
+        const result = await response.json();
+        
+        if (result.success && result.profiles) {
+          // 전역 변수에 저장
+          randomProfiles.length = 0; // 배열 초기화
+          randomProfiles.push(...result.profiles);
+          
+          // UI 업데이트
+          generateRandomProfiles();
+        } else {
+          console.error('프로필 로드 실패:', result.message);
+        }
+      } catch (error) {
+        console.error('프로필 로드 오류:', error);
+      }
+    }
+    
     // 랜덤 매칭 프로필 생성
     function generateRandomProfiles() {
       const container = document.getElementById('profileCardsContainer');
       container.innerHTML = '';
+      
+      if (randomProfiles.length === 0) {
+        container.innerHTML = '<div style="padding: 40px; text-align: center; color: #999; width: 100%;">현재 매칭 가능한 프로필이 없습니다.</div>';
+        return;
+      }
       
       randomProfiles.forEach(profile => {
         const card = document.createElement('div');
         card.className = 'random-profile-card';
         card.innerHTML = `
           <div class="random-profile-avatar">${profile.avatar}</div>
-          <div class="random-profile-name">${profile.name}</div>
+          <div class="random-profile-name">${profile.nickname}</div>
           <div class="random-profile-details">${profile.year} · ${profile.gender}</div>
-          <div class="random-profile-bio">${profile.bio}</div>
-          <button class="random-profile-btn" onclick="viewProfile('${profile.name}')">프로필 보기</button>
+          <div class="random-profile-bio">${profile.bio || '안녕하세요!'}</div>
+          <button class="random-profile-btn" onclick="viewProfile('${profile.nickname}')">프로필 보기</button>
         `;
         container.appendChild(card);
       });
     }
     
     // 프로필 보기
-    function viewProfile(profileName) {
-      const profile = randomProfiles.find(p => p.name === profileName);
+    function viewProfile(profileNickname) {
+      const profile = randomProfiles.find(p => p.nickname === profileNickname);
       if (profile) {
         const modalContent = document.getElementById('profileDetailContent');
         
@@ -2710,9 +2739,9 @@
         
         modalContent.innerHTML = `
           <div class="profile-detail-avatar">${profile.avatar}</div>
-          <div class="profile-detail-name">${profile.name}</div>
+          <div class="profile-detail-name">${profile.nickname}</div>
           <div class="profile-detail-info">${profile.year} · ${profile.gender}</div>
-          <div class="profile-detail-bio">${profile.bio}</div>
+          <div class="profile-detail-bio">${profile.bio || '안녕하세요!'}</div>
           <div class="profile-detail-interests">
             <div class="profile-detail-interests-title">관심사</div>
             <div class="profile-detail-interests-list">
@@ -2813,8 +2842,11 @@
       
       loadAnonProfile();
       
-      // 랜덤 매칭 프로필 생성
-      generateRandomProfiles();
+      // 서버에서 관심사별 참여자 수 로드
+      loadInterestCounts();
+      
+      // 서버에서 랜덤 매칭 프로필 로드
+      loadRandomProfiles();
       
       // 기본 관심분야 방들을 채팅방 목록에 추가
       initializeDefaultInterestRooms();
