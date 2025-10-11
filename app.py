@@ -83,8 +83,8 @@ def login():
 
 @app.route('/login', methods=['POST'])
 def login_post():
-    student_id = request.form.get('studentId')
-    pw = request.form.get('password')
+    student_id = request.form.get('studentId', '').strip()
+    pw = request.form.get('password', '').strip()
     
     if student_id and pw:
         # 등록된 사용자 확인
@@ -94,9 +94,10 @@ def login_post():
         if user:
             # 비밀번호 확인 (실제로는 해시 비교해야 함)
             if user.get('password') == pw:
-                # 학번에서 학과 코드 추출 (3~4번째 자리)
-                if len(student_id) >= 4:
-                    dept_code = student_id[2:4]
+                # 학번에서 학과 코드 추출 (5~6번째 자리)
+                # 학번 형식: YYYY(입학년도 4자리) + 학과코드(2자리) + 번호(3자리) = 9자리
+                if len(student_id) >= 6:
+                    dept_code = student_id[4:6]
                     
                     # 학과 코드에 따른 학과 매핑
                     dept_mapping = {
@@ -208,6 +209,50 @@ def logout():
     session.clear()
     flash('로그아웃되었습니다.', 'success')
     return redirect(url_for('index'))
+
+@app.route('/change-password', methods=['POST'])
+def change_password():
+    """비밀번호 변경"""
+    # 로그인 체크
+    if 'user' not in session or not session.get('user'):
+        return jsonify({'success': False, 'message': '로그인이 필요합니다.'}), 401
+    
+    current_user = session.get('user', {})
+    student_id = current_user.get('student_id')
+    
+    if not student_id:
+        return jsonify({'success': False, 'message': '사용자 정보를 찾을 수 없습니다.'}), 400
+    
+    # 요청 데이터 가져오기
+    data = request.get_json()
+    current_password = data.get('current_password')
+    new_password = data.get('new_password')
+    
+    if not current_password or not new_password:
+        return jsonify({'success': False, 'message': '모든 필드를 입력해주세요.'}), 400
+    
+    # 사용자 데이터 로드
+    users = load_users()
+    user = next((u for u in users if u.get('student_id') == student_id), None)
+    
+    if not user:
+        return jsonify({'success': False, 'message': '사용자를 찾을 수 없습니다.'}), 404
+    
+    # 현재 비밀번호 확인
+    if user.get('password') != current_password:
+        return jsonify({'success': False, 'message': '현재 비밀번호가 올바르지 않습니다.'}), 400
+    
+    # 비밀번호 업데이트
+    user['password'] = new_password
+    
+    # 변경된 사용자 목록 저장
+    if not save_users(users):
+        return jsonify({'success': False, 'message': '비밀번호 변경 중 오류가 발생했습니다.'}), 500
+    
+    return jsonify({
+        'success': True, 
+        'message': '비밀번호가 성공적으로 변경되었습니다.'
+    })
 
 @app.route('/delete-account', methods=['POST'])
 def delete_account():

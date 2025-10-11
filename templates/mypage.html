@@ -243,6 +243,29 @@
     </div>
   </header>
 
+  <!-- Flask Flash 메시지 표시 -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="alert alert-{{ category }} flash-message" role="alert" style="position: fixed; top: 100px; left: 50%; transform: translateX(-50%); z-index: 9999; min-width: 300px; max-width: 600px; padding: 12px 16px; border-radius: 10px; transition: opacity 0.5s ease-out; {% if category == 'success' %}background-color: #d1fae5; color: #065f46; border: 1px solid #6ee7b7;{% elif category == 'error' %}background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;{% else %}background-color: #dbeafe; color: #1e40af; border: 1px solid #93c5fd;{% endif %}">
+          {{ message }}
+          <button type="button" onclick="this.parentElement.style.display='none'" style="float: right; background: none; border: none; font-size: 20px; cursor: pointer; line-height: 1; padding: 0; margin-left: 10px;">&times;</button>
+        </div>
+        <script>
+          setTimeout(function() {
+            const alertEl = document.querySelector('.alert.alert-{{ category }}');
+            if (alertEl) {
+              alertEl.style.opacity = '0';
+              setTimeout(function() {
+                alertEl.style.display = 'none';
+              }, 500);
+            }
+          }, 3000);
+        </script>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
   <main class="mx-auto max-w-6xl px-4 md:px-6 py-8 space-y-8" style="margin-top: 80px;">
     <!-- 상단 히어로 섹션 -->
     <div class="hero-summary">
@@ -793,7 +816,7 @@
           
           // 계정 섹션 업데이트
           document.getElementById('accountName').textContent = userProfile.name || '사용자';
-          document.getElementById('accountStudentId').textContent = userProfile.studentId ? `${userProfile.studentId}학번` : '2022학번';
+          document.getElementById('accountStudentId').textContent = userProfile.studentId || '2022';
           document.getElementById('accountBirthday').textContent = userProfile.birthday || '1999-01-01';
           document.getElementById('accountGender').textContent = userProfile.gender || '남자';
           document.getElementById('accountStatus').textContent = userProfile.status || '재학생';
@@ -821,7 +844,7 @@
     }
 
     // 비밀번호 변경 함수
-    function changePassword() {
+    async function changePassword() {
       const currentPassword = document.getElementById('currentPassword').value;
       const newPassword = document.getElementById('newPassword').value;
       const confirmPassword = document.getElementById('confirmPassword').value;
@@ -846,37 +869,39 @@
       }
       
       try {
-        // 현재 사용자 프로필 가져오기
-        const userProfile = JSON.parse(localStorage.getItem('userProfile') || 'null');
+        // 서버에 비밀번호 변경 요청
+        const response = await fetch("{{ url_for('change_password') }}", {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            current_password: currentPassword,
+            new_password: newPassword
+          })
+        });
         
-        if (!userProfile) {
-          alert('사용자 정보를 찾을 수 없습니다.');
-          return;
+        const result = await response.json();
+        
+        if (result.success) {
+          // 입력 필드 초기화
+          document.getElementById('currentPassword').value = '';
+          document.getElementById('newPassword').value = '';
+          document.getElementById('confirmPassword').value = '';
+          
+          // 모달 닫기
+          closeModal('accountModal');
+          
+          // 성공 메시지
+          alert(result.message);
+        } else {
+          // 오류 메시지 표시
+          alert(result.message);
         }
-        
-        // 현재 비밀번호 확인
-        if (userProfile.password !== currentPassword) {
-          alert('현재 비밀번호가 올바르지 않습니다.');
-          return;
-        }
-        
-        // 새 비밀번호로 업데이트
-        userProfile.password = newPassword;
-        localStorage.setItem('userProfile', JSON.stringify(userProfile));
-        
-        // 입력 필드 초기화
-        document.getElementById('currentPassword').value = '';
-        document.getElementById('newPassword').value = '';
-        document.getElementById('confirmPassword').value = '';
-        
-        // 모달 닫기
-        closeModal('accountModal');
-        
-        alert('비밀번호가 성공적으로 변경되었습니다.');
         
       } catch (error) {
         console.error('비밀번호 변경 실패:', error);
-        alert('비밀번호 변경 중 오류가 발생했습니다.');
+        alert('비밀번호 변경 중 오류가 발생했습니다. 다시 시도해주세요.');
       }
     }
 

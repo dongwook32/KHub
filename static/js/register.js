@@ -118,13 +118,20 @@
   }
 
   /**
-   * 학번 중복 체크 (localStorage 사용)
+   * 학번 중복 체크 (서버 API 사용)
    */
-  function isStudentIdDuplicate(studentId) {
+  async function checkStudentIdDuplicate(studentId) {
     try {
-      // localStorage에서 등록된 학번 목록 가져오기
-      const registeredIds = JSON.parse(localStorage.getItem('registered_student_ids') || '[]');
-      return registeredIds.includes(studentId);
+      const response = await fetch('/api/check-student-id', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ student_id: studentId })
+      });
+      
+      const data = await response.json();
+      return data.duplicate;
     } catch (e) {
       console.error('학번 중복 체크 실패:', e);
       return false;
@@ -134,7 +141,7 @@
   /**
    * 학번 검증 (숫자만, 정확히 9자, 중복 체크)
    */
-  function validateStudentId() {
+  async function validateStudentId() {
     const studentId = document.getElementById('student_id');
     const value = studentId.value.trim();
     const pattern = /^\d{9}$/;
@@ -149,8 +156,9 @@
       return false;
     }
     
-    // 학번 중복 체크
-    if (isStudentIdDuplicate(value)) {
+    // 학번 중복 체크 (서버 API 호출)
+    const isDuplicate = await checkStudentIdDuplicate(value);
+    if (isDuplicate) {
       showError('student_id', '이미 존재하는 학번입니다. 다른 학번으로 회원가입해주세요.');
       return false;
     }
@@ -337,8 +345,10 @@
 
     // 학번
     const studentIdInput = document.getElementById('student_id');
-    studentIdInput.addEventListener('blur', validateStudentId);
-    studentIdInput.addEventListener('input', function() {
+    studentIdInput.addEventListener('blur', async function() {
+      await validateStudentId();
+    });
+    studentIdInput.addEventListener('input', async function() {
       // 숫자만 입력 허용
       this.value = this.value.replace(/[^\d]/g, '');
       
@@ -348,7 +358,7 @@
       }
       
       if (this.value.length === 9) {
-        validateStudentId();
+        await validateStudentId();
       }
     });
 
@@ -395,11 +405,11 @@
 
     // ========== 폼 제출 ==========
     
-    form.addEventListener('submit', function(e) {
+    form.addEventListener('submit', async function(e) {
       e.preventDefault();
       
-      // 모든 검증 실행
-      const validations = [
+      // 모든 검증 실행 (비동기 함수 포함)
+      const validations = await Promise.all([
         validateName(),
         validateStudentId(),
         validateBirthday(),
@@ -408,7 +418,7 @@
         validateEmail(),
         validatePassword(),
         validatePasswordConfirm()
-      ];
+      ]);
       
       const isValid = validations.every(result => result === true);
       
@@ -416,21 +426,6 @@
         showAlert('입력하신 정보를 확인해주세요.', 'error');
         focusFirstError();
         return false;
-      }
-      
-      // 검증 성공 - localStorage에 학번만 저장 (중복 체크용)
-      const studentId = document.getElementById('student_id').value.trim();
-      try {
-        const registeredIds = JSON.parse(localStorage.getItem('registered_student_ids') || '[]');
-        if (!registeredIds.includes(studentId)) {
-          registeredIds.push(studentId);
-          localStorage.setItem('registered_student_ids', JSON.stringify(registeredIds));
-        }
-        
-        // 주의: 회원가입 시에는 currentUser를 설정하지 않음
-        // 로그인 후에만 currentUser와 userProfile이 설정됨
-      } catch (e) {
-        console.error('localStorage 저장 실패:', e);
       }
       
       // 폼 제출
