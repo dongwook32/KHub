@@ -85,6 +85,9 @@ function toggleLike(postId) {
     }
   }
   
+  // 게시글 정보 저장 (좋아요 수 변경)
+  savePostsToLocalStorage();
+  
   // UI 업데이트
   updateLikeUI(postId, post.likes);
   
@@ -142,6 +145,9 @@ function toggleCommentLike(commentId) {
     likedComments.delete(commentId);
     comment.likes = Math.max(0, comment.likes - 1);
     
+    // 댓글 정보 저장
+    saveCommentsToLocalStorage();
+    
     // localStorage에서 제거
     if (currentUser) {
       try {
@@ -156,6 +162,9 @@ function toggleCommentLike(commentId) {
     // 좋아요 추가
     likedComments.add(commentId);
     comment.likes += 1;
+    
+    // 댓글 정보 저장
+    saveCommentsToLocalStorage();
     
     // localStorage에 추가
     if (currentUser) {
@@ -1221,6 +1230,9 @@ function deletePost(postId) {
   // 해당 게시글의 댓글들도 삭제
   comments = comments.filter(c => c.postId !== postId);
   
+  // localStorage에 게시글 저장
+  savePostsToLocalStorage();
+  
   // localStorage에서 삭제 (마이페이지 활동 기록)
   const currentUser = localStorage.getItem('currentUser');
   if (currentUser) {
@@ -1420,10 +1432,15 @@ function submitDetailComment(event, postId) {
   
   comments.push(newComment);
   
+  // localStorage에 댓글 저장
+  saveCommentsToLocalStorage();
+  
   // 해당 게시글의 댓글 수 증가
   const post = posts.find(p => p.id === postId);
   if (post) {
     post.comments++;
+    // 게시글 정보도 localStorage에 저장
+    savePostsToLocalStorage();
   }
   
   // 마이페이지 활동 기록에 추가
@@ -1457,6 +1474,34 @@ function submitDetailComment(event, postId) {
   renderPostDetail(post, postComments);
   
   console.log('상세 화면 댓글 작성됨:', newComment);
+}
+
+// ===== 댓글 저장/로드 함수 =====
+function saveCommentsToLocalStorage() {
+  try {
+    // mockComments 제외하고 사용자가 작성한 댓글만 저장
+    const mockCommentIds = mockComments.map(c => c.id);
+    const userComments = comments.filter(comment => !mockCommentIds.includes(comment.id));
+    localStorage.setItem('boardComments', JSON.stringify(userComments));
+    console.log('댓글 저장됨:', userComments.length + '개');
+  } catch (e) {
+    console.error('댓글 저장 실패:', e);
+  }
+}
+
+function loadCommentsFromLocalStorage() {
+  try {
+    const savedComments = localStorage.getItem('boardComments');
+    if (savedComments) {
+      const userComments = JSON.parse(savedComments);
+      console.log('저장된 댓글 로드됨:', userComments.length + '개');
+      // mockComments와 병합 (사용자 댓글을 앞에 배치)
+      return [...userComments, ...mockComments];
+    }
+  } catch (e) {
+    console.error('댓글 로드 실패:', e);
+  }
+  return [...mockComments];
 }
 
 
@@ -1602,6 +1647,9 @@ function submitPost(event) {
   
   posts.unshift(newPost);
   
+  // localStorage에 게시글 저장
+  savePostsToLocalStorage();
+  
   // 마이페이지 활동 기록에 추가
   const currentUser = localStorage.getItem('currentUser');
   if (currentUser) {
@@ -1630,11 +1678,41 @@ function submitPost(event) {
   console.log('게시글 작성됨:', newPost);
 }
 
+// ===== 게시글 저장/로드 함수 =====
+function savePostsToLocalStorage() {
+  try {
+    // mockPosts 제외하고 사용자가 작성한 게시글만 저장
+    // mockPosts의 ID는 'pf1', 'pa1' 등 짧은 형태
+    // 사용자 게시글 ID는 'p' + Date.now()로 긴 형태 (예: p1728123456789)
+    const mockPostIds = mockPosts.map(p => p.id);
+    const userPosts = posts.filter(post => !mockPostIds.includes(post.id));
+    localStorage.setItem('boardPosts', JSON.stringify(userPosts));
+    console.log('게시글 저장됨:', userPosts.length + '개');
+  } catch (e) {
+    console.error('게시글 저장 실패:', e);
+  }
+}
+
+function loadPostsFromLocalStorage() {
+  try {
+    const savedPosts = localStorage.getItem('boardPosts');
+    if (savedPosts) {
+      const userPosts = JSON.parse(savedPosts);
+      console.log('저장된 게시글 로드됨:', userPosts.length + '개');
+      // mockPosts와 병합 (사용자 게시글을 앞에 배치)
+      return [...userPosts, ...mockPosts];
+    }
+  } catch (e) {
+    console.error('게시글 로드 실패:', e);
+  }
+  return [...mockPosts];
+}
+
 // ===== 이벤트 리스너 =====
 document.addEventListener('DOMContentLoaded', function() {
-  // 목업 데이터 초기화
-  posts = [...mockPosts];
-  comments = [...mockComments];
+  // localStorage에서 게시글 로드 (mockPosts와 병합)
+  posts = loadPostsFromLocalStorage();
+  comments = loadCommentsFromLocalStorage();
   
   // 마이페이지에서 온 경우 특정 게시글로 이동
   const urlParams = new URLSearchParams(window.location.search);

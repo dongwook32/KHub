@@ -160,8 +160,8 @@
   <main class="anonymous-card-container" style="display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: calc(100vh - 120px); padding: 40px 25px; box-sizing: border-box; max-width: 1200px; margin: 0 auto; background: transparent; margin-top: 80px;">
     <!-- 익명 프로필 카드 -->
     <div class="text-center mb-8">
-        <h2 class="text-2xl font-bold text-gray-800 mb-2">익명 프로필 만들기</h2>
-        <p class="text-gray-600">나만의 특별한 익명 프로필을 예쁘게 꾸며보세요!</p>
+        <h2 class="text-2xl font-bold text-gray-800 mb-2" id="pageTitle">익명 프로필 만들기</h2>
+        <p class="text-gray-600" id="pageDesc">나만의 특별한 익명 프로필을 예쁘게 꾸며보세요!</p>
     </div>
     
     <div class="profile-card bg-white rounded-3xl shadow-2xl p-8 border border-peach/20 relative overflow-hidden" style="max-width: 700px; width: 100%; margin: 0 auto;">
@@ -318,9 +318,66 @@
         }
     }
 
+    // 기존 익명 프로필 로드
+    function loadExistingProfile() {
+        try {
+            const profile = JSON.parse(localStorage.getItem('anonProfile') || 'null');
+            if (profile) {
+                // 페이지 타이틀 변경 (수정 모드)
+                document.getElementById('pageTitle').textContent = '익명 프로필 수정';
+                document.getElementById('pageDesc').textContent = '익명 프로필 정보를 수정할 수 있습니다.';
+                
+                // 학번 선택
+                if (profile.year) {
+                    document.getElementById('ap_year').value = profile.year;
+                }
+                
+                // 성별 선택
+                if (profile.gender) {
+                    const genderBtn = document.querySelector(`[data-gender="${profile.gender}"]`);
+                    if (genderBtn) {
+                        selectGender(genderBtn);
+                    }
+                }
+                
+                // 닉네임 입력
+                if (profile.nickname) {
+                    const nicknameInput = document.getElementById('ap_nickname');
+                    nicknameInput.value = profile.nickname;
+                    document.getElementById('ap_nickname_count').textContent = profile.nickname.length;
+                }
+                
+                // 자기소개 입력
+                if (profile.bio) {
+                    const bioInput = document.getElementById('ap_bio');
+                    bioInput.value = profile.bio;
+                    document.getElementById('ap_count').textContent = profile.bio.length;
+                }
+                
+                // 관심사 선택
+                if (profile.interests && profile.interests.length > 0) {
+                    profile.interests.forEach(interest => {
+                        const checkbox = document.querySelector(`input[value="${interest}"]`);
+                        if (checkbox) {
+                            checkbox.checked = true;
+                            const label = checkbox.closest('.interest-chip');
+                            label.classList.add('selected');
+                        }
+                    });
+                    updateSelectedCount();
+                }
+            }
+        } catch (e) {
+            console.error('기존 프로필 로드 실패:', e);
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', function(){
         // 년도 설정
         document.getElementById('year').textContent = new Date().getFullYear();
+        
+        // 기존 프로필 로드
+        loadExistingProfile();
         
         const form = document.getElementById('anon-form');
         const bio = document.getElementById('ap_bio');
