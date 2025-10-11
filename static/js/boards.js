@@ -1336,6 +1336,63 @@ async function deletePost(postId) {
   }
 }
 
+// ===== 댓글 삭제 =====
+async function deleteComment(commentId, postId) {
+  if (!confirm('정말 이 댓글을 삭제하시겠습니까?')) {
+    return;
+  }
+  
+  try {
+    // 서버에서 댓글 삭제
+    const response = await fetch(`/api/board-comments/${commentId}`, {
+      method: 'DELETE'
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      // 서버에서 게시글과 댓글 다시 로드
+      posts = await loadPostsFromServer();
+      comments = await loadCommentsFromServer();
+      
+      // 익명 번호 매핑 재구성
+      rebuildAnonymousMap(posts, comments);
+      
+      // localStorage에서 삭제 (마이페이지 활동 기록)
+      const currentUser = localStorage.getItem('currentUser');
+      if (currentUser) {
+        try {
+          const activity = JSON.parse(localStorage.getItem(`activity_${currentUser}`) || '{"posts":[],"comments":[],"likes":[],"commentLikes":[]}');
+          
+          // 내가 작성한 댓글 목록에서 삭제
+          activity.comments = activity.comments.filter(c => c.id !== commentId);
+          
+          // 댓글 좋아요 목록에서도 삭제
+          activity.commentLikes = activity.commentLikes.filter(l => l.commentId !== commentId);
+          
+          localStorage.setItem(`activity_${currentUser}`, JSON.stringify(activity));
+        } catch (e) {
+          console.error('활동 기록 삭제 실패:', e);
+        }
+      }
+      
+      // 상세 화면 새로고침
+      const post = posts.find(p => p.id === postId);
+      if (post) {
+        const postComments = comments.filter(c => c.postId === postId);
+        renderPostDetail(post, postComments);
+      }
+      
+      alert('댓글이 삭제되었습니다.');
+    } else {
+      alert(result.message || '댓글 삭제 중 오류가 발생했습니다.');
+    }
+  } catch (error) {
+    console.error('댓글 삭제 오류:', error);
+    alert('댓글 삭제 중 오류가 발생했습니다.');
+  }
+}
+
 // ===== 게시글 상세 화면 렌더링 =====
 function renderPostDetail(post, postComments) {
   const detailView = document.getElementById('postDetailView');
@@ -1408,9 +1465,20 @@ function renderPostDetail(post, postComments) {
         <div class="comments-header">댓글 ${postComments.length}</div>
         
         <div class="comments-list">
-          ${postComments.map(comment => `
+          ${postComments.map(comment => {
+            // 현재 사용자가 댓글 작성자인지 확인
+            const isCommentAuthor = userProfile && comment.authorStudentId && userProfile.studentId === comment.authorStudentId;
+            
+            return `
             <div class="comment-item" data-comment-id="${comment.id}">
-              <div class="comment-meta">${comment.author} · ${getYearDisplay(comment.year, comment.status)} · ${formatTime(comment.createdAt)}</div>
+              <div class="comment-meta" style="display: flex; justify-content: space-between; align-items: center;">
+                <span>${comment.author} · ${getYearDisplay(comment.year, comment.status)} · ${formatTime(comment.createdAt)}</span>
+                ${isCommentAuthor ? `
+                  <button onclick="deleteComment('${comment.id}', '${post.id}')" style="padding: 4px 8px; background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.2s ease;" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">
+                    삭제
+                  </button>
+                ` : ''}
+              </div>
               <div class="comment-content">${comment.content}</div>
               <div class="comment-actions">
                 <button class="comment-like-btn ${isCommentLiked(comment.id) ? 'liked' : ''}" onclick="toggleCommentLike('${comment.id}')">
@@ -1421,7 +1489,8 @@ function renderPostDetail(post, postComments) {
                 </button>
               </div>
             </div>
-          `).join('')}
+            `;
+          }).join('')}
         </div>
         
         <form class="comment-form" onsubmit="submitDetailComment(event, '${post.id}')">

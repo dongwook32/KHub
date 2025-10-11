@@ -550,6 +550,39 @@ def create_board_comment():
     
     return jsonify({'success': True, 'message': '댓글이 작성되었습니다.', 'comment': data})
 
+@app.route('/api/board-comments/<comment_id>', methods=['DELETE'])
+def delete_board_comment(comment_id):
+    """댓글 삭제"""
+    # 로그인 체크
+    if 'user' not in session or not session.get('user'):
+        return jsonify({'success': False, 'message': '로그인이 필요합니다.'}), 401
+    
+    comments = load_board_comments()
+    
+    # 댓글 찾기
+    comment = next((c for c in comments if c.get('id') == comment_id), None)
+    
+    if not comment:
+        return jsonify({'success': False, 'message': '댓글을 찾을 수 없습니다.'}), 404
+    
+    # 댓글 삭제
+    comments = [c for c in comments if c.get('id') != comment_id]
+    
+    # 저장
+    if not save_board_comments(comments):
+        return jsonify({'success': False, 'message': '댓글 삭제 중 오류가 발생했습니다.'}), 500
+    
+    # 해당 게시글의 댓글 수 감소
+    post_id = comment.get('postId')
+    if post_id:
+        posts = load_board_posts()
+        post = next((p for p in posts if p.get('id') == post_id), None)
+        if post and post.get('comments', 0) > 0:
+            post['comments'] = post['comments'] - 1
+            save_board_posts(posts)
+    
+    return jsonify({'success': True, 'message': '댓글이 삭제되었습니다.'})
+
 @app.route('/api/board-posts/<post_id>', methods=['PUT'])
 def update_board_post(post_id):
     """게시글 정보 업데이트 (좋아요, 댓글 수 등)"""
