@@ -2106,6 +2106,8 @@
 
         // 채팅방 입장
         async function enterRoom(roomName) {
+            console.log(`[입장] ${roomName} 방에 입장`);
+            
             currentRoom = roomName;
             document.getElementById('chatHeader').textContent = roomName;
             document.getElementById('chatContent').style.display = 'none';
@@ -2116,6 +2118,8 @@
             
             // 메시지 폴링 시작
             startMessagePolling();
+            
+            console.log(`[입장] ${roomName} 방 입장 완료, 폴링 시작됨`);
             
             // 관심분야 방인 경우 참여자 수 증가
             const roomData = chatData.roomList.find(room => room.name === roomName);
@@ -2241,6 +2245,8 @@
             const message = messageInput.value.trim();
             
             if (message && currentRoom) {
+                console.log(`[전송] 채팅방: ${currentRoom}, 메시지: ${message}`);
+                
                 // 내 메시지를 즉시 표시
                 addMessage(message, true);
                 messageInput.value = '';
@@ -2250,7 +2256,9 @@
                     const anonProfile = JSON.parse(localStorage.getItem('anonProfile') || 'null');
                     const nickname = anonProfile ? anonProfile.nickname : '익명';
                     
-                    const response = await fetch(`/api/chat/messages/${currentRoom}`, {
+                    console.log(`[전송] 닉네임: ${nickname}, 채팅방 ID: ${currentRoom}`);
+                    
+                    const response = await fetch(`/api/chat/messages/${encodeURIComponent(currentRoom)}`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -2263,42 +2271,66 @@
                     
                     const result = await response.json();
                     
-                    if (!result.success) {
+                    if (result.success && result.message_data) {
+                        // 내가 보낸 메시지 ID를 해당 채팅방의 추적 목록에 추가 (중복 방지)
+                        if (!displayedMessageIds[currentRoom]) {
+                            displayedMessageIds[currentRoom] = new Set();
+                        }
+                        displayedMessageIds[currentRoom].add(result.message_data.id);
+                        console.log(`[전송 성공] 메시지 ID: ${result.message_data.id}`);
+                    } else {
                         console.error('메시지 전송 실패:', result.message);
                     }
                 } catch (error) {
                     console.error('메시지 전송 오류:', error);
                 }
+            } else {
+                console.warn('메시지 또는 현재 채팅방이 없습니다.');
             }
         }
 
     // 메시지 폴링 인터벌
     let messagePollingInterval = null;
-    let lastMessageId = null;
+    let displayedMessageIds = {}; // 채팅방별로 이미 표시된 메시지 ID 추적 { roomName: Set(), ... }
     
     // 채팅방 메시지 로드
     async function loadRoomMessages(roomName) {
+        console.log(`[로드] ${roomName} 방의 메시지 로드 시작`);
+        
         try {
-            const response = await fetch(`/api/chat/messages/${roomName}`);
+            const response = await fetch(`/api/chat/messages/${encodeURIComponent(roomName)}`);
             const result = await response.json();
+            
+            console.log(`[로드] 서버 응답:`, result);
             
             if (result.success && result.messages) {
                 // 메시지 컨테이너 초기화
-                document.getElementById('chatMessages').innerHTML = '';
+                document.getElementById('messages').innerHTML = '';
+                
+                // 해당 채팅방의 메시지 ID 추적 초기화
+                if (!displayedMessageIds[roomName]) {
+                    displayedMessageIds[roomName] = new Set();
+                }
+                displayedMessageIds[roomName].clear();
                 
                 // 현재 사용자의 닉네임 가져오기
                 const anonProfile = JSON.parse(localStorage.getItem('anonProfile') || 'null');
                 const myNickname = anonProfile ? anonProfile.nickname : '익명';
                 
+                console.log(`[로드] 내 닉네임: ${myNickname}`);
+                
                 // 메시지 표시
                 result.messages.forEach(msg => {
                     const isMyMessage = msg.sender === myNickname;
+                    console.log(`[로드] 메시지: ${msg.sender} - ${msg.content.substring(0, 20)}... (내 메시지: ${isMyMessage})`);
                     addMessage(msg.content, isMyMessage, msg.sender);
-                    lastMessageId = msg.id;
+                    displayedMessageIds[roomName].add(msg.id);
                 });
+                
+                console.log(`[로드] ${roomName} 방의 메시지 ${result.messages.length}개 로드 완료`);
             }
         } catch (error) {
-            console.error('메시지 로드 오류:', error);
+            console.error('[로드] 메시지 로드 오류:', error);
         }
     }
     
@@ -2307,38 +2339,46 @@
         // 기존 폴링 중지
         if (messagePollingInterval) {
             clearInterval(messagePollingInterval);
+            console.log('[폴링] 기존 폴링 중지');
         }
         
-        // 3초마다 새 메시지 확인
+        console.log(`[폴링] ${currentRoom} 방의 메시지 폴링 시작 (2초마다)`);
+        
+        // 2초마다 새 메시지 확인
         messagePollingInterval = setInterval(async () => {
             if (currentRoom) {
                 try {
-                    const response = await fetch(`/api/chat/messages/${currentRoom}`);
+                    const response = await fetch(`/api/chat/messages/${encodeURIComponent(currentRoom)}`);
                     const result = await response.json();
                     
                     if (result.success && result.messages) {
                         const anonProfile = JSON.parse(localStorage.getItem('anonProfile') || 'null');
                         const myNickname = anonProfile ? anonProfile.nickname : '익명';
                         
-                        // 마지막으로 받은 메시지 이후의 새 메시지만 표시
-                        const newMessages = result.messages.filter(msg => 
-                            lastMessageId ? msg.id > lastMessageId : false
-                        );
+                        // 해당 채팅방의 메시지 ID 추적 Set이 없으면 생성
+                        if (!displayedMessageIds[currentRoom]) {
+                            displayedMessageIds[currentRoom] = new Set();
+                        }
                         
-                        newMessages.forEach(msg => {
-                            const isMyMessage = msg.sender === myNickname;
-                            // 내가 보낸 메시지가 아닐 때만 표시 (내 메시지는 이미 표시됨)
-                            if (!isMyMessage) {
-                                addMessage(msg.content, false, msg.sender);
-                            }
-                            lastMessageId = msg.id;
-                        });
+                        // 아직 표시되지 않은 새 메시지만 필터링
+                        const newMessages = result.messages.filter(msg => !displayedMessageIds[currentRoom].has(msg.id));
+                        
+                        if (newMessages.length > 0) {
+                            console.log(`[폴링] ${currentRoom} 방에서 ${newMessages.length}개의 새 메시지 발견`);
+                            
+                            newMessages.forEach(msg => {
+                                const isMyMessage = msg.sender === myNickname;
+                                console.log(`[폴링] 메시지 표시: ${msg.sender} - ${msg.content.substring(0, 20)}... (내 메시지: ${isMyMessage})`);
+                                addMessage(msg.content, isMyMessage, msg.sender);
+                                displayedMessageIds[currentRoom].add(msg.id);
+                            });
+                        }
                     }
                 } catch (error) {
-                    console.error('메시지 폴링 오류:', error);
+                    console.error('[폴링] 메시지 폴링 오류:', error);
                 }
             }
-        }, 3000);
+        }, 2000);
     }
     
     // 메시지 폴링 중지
@@ -2346,6 +2386,7 @@
         if (messagePollingInterval) {
             clearInterval(messagePollingInterval);
             messagePollingInterval = null;
+            console.log('[폴링] 메시지 폴링 중지');
         }
     }
 

@@ -256,12 +256,17 @@ def chat():
         flash('로그인이 필요합니다.', 'error')
         return redirect(url_for('login'))
     
-    # 익명 프로필이 없으면 프로필 설정 페이지로 리디렉트
-    if 'anon_profile' not in session:
-        return redirect(url_for('profile_setup'))
+    # 현재 사용자의 익명 프로필 가져오기
+    current_user = session.get('user', {})
+    student_id = current_user.get('student_id')
     
-    # 세션에서 익명 프로필 가져오기
-    anon_profile = session.get('anon_profile', {})
+    anon_profile = {}
+    if student_id:
+        all_profiles = load_anon_profiles()
+        user_profile = next((p for p in all_profiles if p.get('student_id') == student_id), None)
+        if user_profile:
+            anon_profile = user_profile
+    
     return render_template('chat.html', anon_profile=anon_profile)
 
 @app.route('/boards')
@@ -673,6 +678,8 @@ def get_chat_messages(room_id):
     all_messages = load_chat_messages()
     room_messages = all_messages.get(room_id, [])
     
+    print(f"[채팅] {room_id} 방의 메시지 조회: {len(room_messages)}개")
+    
     return jsonify({'success': True, 'messages': room_messages})
 
 @app.route('/api/chat/messages/<room_id>', methods=['POST'])
@@ -706,6 +713,9 @@ def send_chat_message(room_id):
     }
     
     all_messages[room_id].append(new_message)
+    
+    print(f"[채팅] {sender_nickname}님이 {room_id} 방에 메시지 전송: {message[:20]}...")
+    print(f"[채팅] {room_id} 방의 총 메시지 수: {len(all_messages[room_id])}개")
     
     # 최근 100개 메시지만 유지
     if len(all_messages[room_id]) > 100:
