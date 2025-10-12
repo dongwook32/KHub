@@ -1214,6 +1214,8 @@
         }
     }
     
+    /* 나간 채팅방은 목록에서 완전히 제거되므로 스타일 불필요 */
+
     /* 통일된 Footer 스타일 */
     footer {
         border-top: 1px solid rgba(255, 200, 178, 0.5);
@@ -1555,16 +1557,18 @@
     // 관심사 목록 업데이트
     function updateInterestList(interests) {
       const interestList = document.getElementById('interestList');
+      
+      // 관심분야 목록 초기화
       interestList.innerHTML = '';
       
-            if (interests.length === 0) {
+      if (interests.length === 0) {
         const li = document.createElement('li');
         li.textContent = '선택한 관심사가 없습니다.';
         li.style.color = '#999';
         li.style.cursor = 'default';
         interestList.appendChild(li);
-                return;
-            }
+        return;
+      }
             
       // 관심사별 이모지 매핑
       const interestEmojis = {
@@ -1579,8 +1583,17 @@
         '맛집': '🍽️'
       };
       
+      // 나간 채팅방 목록 확인
+      const leftRooms = JSON.parse(localStorage.getItem('leftRooms') || '[]');
+      
       interests.forEach(interest => {
-                const li = document.createElement('li');
+        // 나간 채팅방이면 목록에서 완전히 제외
+        if (leftRooms.includes(interest)) {
+          console.log(`[관심분야 목록] ${interest}는 나간 방이므로 목록에서 제외`);
+          return; // 이 관심사는 건너뛰기
+        }
+        
+        const li = document.createElement('li');
         const emoji = interestEmojis[interest] || '🎯';
         const participantCount = roomParticipants[interest]?.count || 0;
         
@@ -1594,10 +1607,15 @@
             </div>
         `;
         
+        // 정상적인 방만 표시
         li.addEventListener('click', () => {
             // 관심사 방 입장 시 채팅방 목록에 추가
-            addInterestRoom(interest);
-            enterRoom(interest);
+            const added = addInterestRoom(interest);
+            if (added) {
+                enterRoom(interest);
+            } else {
+                console.error(`[입장 실패] ${interest} 방 추가 실패`);
+            }
             
             // 클릭된 관심분야에 active 클래스 추가 (비주얼 스타일 적용)
             document.querySelectorAll('#interestList li').forEach(item => {
@@ -1605,12 +1623,27 @@
             });
             li.classList.add('active');
         });
-                interestList.appendChild(li);
-            });
+        
+        interestList.appendChild(li);
+      });
+      
+      // 표시된 관심사 개수 계산 (나간 방 제외)
+      const displayedCount = interestList.children.length;
+      const leftCount = leftRooms.length;
+      console.log(`[관심분야 목록] 전체 ${interests.length}개 중 ${leftCount}개 제외, ${displayedCount}개 표시`);
     }
 
     // 관심사 방을 채팅방 목록에 추가
     function addInterestRoom(interest) {
+        // 나간 방은 이미 목록에서 제외되므로 체크 불필요
+        
+        // 이미 존재하는 방인지 확인
+        const existingRoom = chatData.roomList.find(room => room.name === interest);
+        if (existingRoom) {
+            console.log(`[채팅방 추가] ${interest} 방은 이미 존재합니다`);
+            return true;
+        }
+        
         // roomParticipants 초기화 (없으면)
         if (!roomParticipants[interest]) {
             roomParticipants[interest] = {
@@ -1620,26 +1653,24 @@
             };
         }
         
-        // 이미 존재하는 방인지 확인
-        const existingRoom = chatData.roomList.find(room => room.name === interest);
-        if (!existingRoom) {
-            // 채팅방 데이터에 추가
-            if (!chatData.rooms[interest]) {
-                chatData.rooms[interest] = [];
-            }
-            
-            // 채팅방 목록에 추가
-            chatData.roomList.push({
-                name: interest,
-                type: 'interest',
-                unreadCount: 0,
-                participantCount: roomParticipants[interest].count,
-                createdAt: new Date().toISOString()
-            });
-            
-            saveChatData();
-            updateRoomListUI();
+        // 채팅방 데이터에 추가
+        if (!chatData.rooms[interest]) {
+            chatData.rooms[interest] = [];
         }
+        
+        // 채팅방 목록에 추가
+        chatData.roomList.push({
+            name: interest,
+            type: 'interest',
+            unreadCount: 0,
+            participantCount: roomParticipants[interest].count,
+            createdAt: new Date().toISOString()
+        });
+        
+        console.log(`[채팅방 추가] ${interest} 방이 추가되었습니다 (총 ${chatData.roomList.length}개)`);
+        saveChatData();
+        updateRoomListUI();
+        return true;
     }
 
     // 관심분야 방 참여자 수 증가 (제거 - 서버에서 실제 수를 가져옴)
@@ -1703,7 +1734,9 @@
         // 채팅 데이터 저장
         function saveChatData() {
             try {
+                // 저장만 수행 (필터링은 loadChatData와 leaveChatRoom에서만)
                 localStorage.setItem('chatData', JSON.stringify(chatData));
+                console.log(`[저장] ${chatData.roomList.length}개 채팅방 저장`);
             } catch (e) {
                 console.error('채팅 데이터 저장 실패:', e);
             }
@@ -1715,6 +1748,17 @@
                 const saved = localStorage.getItem('chatData');
                 if (saved) {
                     chatData = JSON.parse(saved);
+                    
+                    // 나간 채팅방 목록 필터링
+                    const leftRooms = JSON.parse(localStorage.getItem('leftRooms') || '[]');
+                    if (leftRooms.length > 0) {
+                        // 나간 방 목록에서 제거
+                        chatData.roomList = chatData.roomList.filter(room => !leftRooms.includes(room.name));
+                        console.log(`[로드] ${leftRooms.length}개의 나간 채팅방 필터링 완료`);
+                        
+                        // 필터링된 데이터 저장
+                        saveChatData();
+                    }
                 }
             } catch (e) {
                 console.error('채팅 데이터 로드 실패:', e);
@@ -1724,6 +1768,9 @@
 
         // 채팅방 목록 UI 업데이트
         function updateRoomListUI() {
+            // 나간 채팅방 목록 로드
+            const leftRooms = JSON.parse(localStorage.getItem('leftRooms') || '[]');
+            
             // 1:1 채팅방 목록 업데이트
             const dmList = document.getElementById('dmList');
             dmList.innerHTML = '';
@@ -1732,19 +1779,35 @@
             const groupList = document.getElementById('groupList');
             groupList.innerHTML = '';
             
-            // 관심분야 채팅방 목록 업데이트
-            const interestList = document.getElementById('interestList');
-            interestList.innerHTML = '';
+            // 관심분야 채팅방 목록은 updateInterestList에서 처리하므로 여기서는 건드리지 않음
+            // const interestList = document.getElementById('interestList');
+            // interestList.innerHTML = '';
             
+            let displayCount = 0;
+            let skipCount = 0;
+            
+            // 나간 방을 제외하고 채팅방 목록 렌더링
             chatData.roomList.forEach(room => {
+                // 나간 방은 스킵
+                if (leftRooms.includes(room.name)) {
+                    console.log(`[UI 스킵] ${room.name}은 나간 방`);
+                    skipCount++;
+                    return;
+                }
+                
                 if (room.type === 'dm') {
                     createRoomListItem('dmList', room.name, room.unreadCount || 0);
+                    displayCount++;
                 } else if (room.type === 'group') {
                     createRoomListItem('groupList', room.name, room.unreadCount || 0, room.participantCount || 0);
+                    displayCount++;
                 } else if (room.type === 'interest') {
-                    createRoomListItem('interestList', room.name, room.unreadCount || 0, room.participantCount || 0);
+                    // 관심분야 방은 별도 처리하지 않음 (updateInterestList에서 처리)
+                    console.log(`[UI 스킵] ${room.name} 관심분야 방은 별도 처리`);
                 }
             });
+            
+            console.log(`[UI 업데이트] 전체 ${chatData.roomList.length}개 중 ${displayCount}개 표시, ${skipCount}개 스킵`);
         }
 
         // 채팅방 목록 아이템 생성
@@ -2106,7 +2169,9 @@
 
         // 채팅방 입장
         async function enterRoom(roomName) {
-            console.log(`[입장] ${roomName} 방에 입장`);
+            console.log(`[입장] ${roomName} 방에 입장 시도`);
+            
+            // 나간 방은 이미 목록에서 제외되므로 체크 불필요
             
             currentRoom = roomName;
             document.getElementById('chatHeader').textContent = roomName;
@@ -2719,6 +2784,9 @@
       if (confirm('정말로 채팅방을 나가시겠습니까?')) {
         if (!currentRoom) return;
         
+        const roomToLeave = currentRoom;
+        console.log(`[나가기 시작] ${roomToLeave} 채팅방`);
+        
         // 현재 사용자 정보 가져오기
         const currentUser = localStorage.getItem('anonProfile') ? 
           JSON.parse(localStorage.getItem('anonProfile')).nickname : '익명의친구';
@@ -2726,28 +2794,93 @@
         // 나가기 메시지 추가
         addLeaveMessage(currentUser);
         
-        // 채팅방 목록에서 제거
-        chatData.roomList = chatData.roomList.filter(room => room.name !== currentRoom);
-        
-        // 채팅 기록 삭제
-        if (chatData.rooms[currentRoom]) {
-            delete chatData.rooms[currentRoom];
+        // 1. 나간 채팅방 목록에 추가 (최우선)
+        let leftRooms = JSON.parse(localStorage.getItem('leftRooms') || '[]');
+        if (!leftRooms.includes(roomToLeave)) {
+          leftRooms.push(roomToLeave);
+          localStorage.setItem('leftRooms', JSON.stringify(leftRooms));
+          console.log(`[나가기 1/5] ${roomToLeave}을 나간 방 목록에 추가 (현재 나간 방: ${leftRooms.length}개)`);
         }
         
-        // 그룹 채팅방인 경우 참여자 수 감소
-        if (roomParticipants[currentRoom]) {
-          roomParticipants[currentRoom].count = Math.max(0, roomParticipants[currentRoom].count - 1);
+        // 2. 관심분야 방인 경우 익명 프로필의 관심사 목록에서도 제거
+        try {
+          const anonProfile = JSON.parse(localStorage.getItem('anonProfile') || 'null');
+          if (anonProfile && anonProfile.interests) {
+            const interestIndex = anonProfile.interests.indexOf(roomToLeave);
+            if (interestIndex > -1) {
+              anonProfile.interests.splice(interestIndex, 1);
+              localStorage.setItem('anonProfile', JSON.stringify(anonProfile));
+              console.log(`[나가기 2/5] 익명 프로필 관심사에서 ${roomToLeave} 제거 (남은 관심사: ${anonProfile.interests.length}개)`);
+              
+              // 서버에도 익명 프로필 업데이트
+              const profileData = {
+                nickname: anonProfile.nickname,
+                year: anonProfile.year,
+                gender: anonProfile.gender,
+                bio: anonProfile.bio,
+                interests: anonProfile.interests
+              };
+              
+              fetch('/save-anon-profile', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(profileData)
+              }).then(response => response.json())
+                .then(result => {
+                  if (result.success) {
+                    console.log('[서버 동기화] 익명 프로필 업데이트 성공');
+                  } else {
+                    console.error('[서버 동기화] 익명 프로필 업데이트 실패:', result.message);
+                  }
+                })
+                .catch(error => {
+                  console.error('[서버 동기화] 익명 프로필 업데이트 실패:', error);
+                });
+            }
+          }
+        } catch (e) {
+          console.error('[나가기 오류] 익명 프로필 업데이트 실패:', e);
+        }
+        
+        // 3. 채팅방 목록에서 제거 (즉시)
+        const beforeCount = chatData.roomList.length;
+        chatData.roomList = chatData.roomList.filter(room => room.name !== roomToLeave);
+        console.log(`[나가기 3/5] 채팅방 목록에서 제거: ${roomToLeave} (${beforeCount}개 → ${chatData.roomList.length}개)`);
+        
+        // 4. 채팅 기록 삭제
+        if (chatData.rooms[roomToLeave]) {
+            delete chatData.rooms[roomToLeave];
+            console.log(`[나가기 4/5] ${roomToLeave}의 채팅 기록 삭제`);
+        }
+        
+        // 5. 그룹 채팅방인 경우 참여자 수 감소
+        if (roomParticipants[roomToLeave]) {
+          roomParticipants[roomToLeave].count = Math.max(0, roomParticipants[roomToLeave].count - 1);
           
-          // 참여자 목록에서 현재 사용자 제거 (실제로는 서버에서 처리해야 함)
-          const userIndex = roomParticipants[currentRoom].users.indexOf(currentUser);
+          // 참여자 목록에서 현재 사용자 제거
+          const userIndex = roomParticipants[roomToLeave].users.indexOf(currentUser);
           if (userIndex > -1) {
-            roomParticipants[currentRoom].users.splice(userIndex, 1);
+            roomParticipants[roomToLeave].users.splice(userIndex, 1);
           }
         }
         
-        // 데이터 저장 및 UI 업데이트
+        // 6. 데이터 저장 (필터링 포함)
         saveChatData();
+        console.log(`[나가기 5/5] 데이터 저장 완료`);
+        
+        // 7. UI 업데이트
         updateRoomListUI();
+        
+        // 8. 관심분야 목록도 즉시 업데이트 (새로고침 없이)
+        const profile = JSON.parse(localStorage.getItem('anonProfile') || 'null');
+        if (profile && profile.interests) {
+          updateInterestList(profile.interests);
+          console.log(`[나가기 완료] 관심분야 목록 업데이트: ${profile.interests.length}개 표시`);
+        }
+        
+        console.log(`[나가기 완료] ${roomToLeave} 방 나가기 완료, UI 업데이트됨`);
         
         // 홈으로 돌아가기
         backToHome();
@@ -2932,7 +3065,28 @@
       
       // 채팅 데이터 로드
       loadChatData();
+      
+      // 나간 채팅방 확실히 제거 (페이지 로드 시)
+      const leftRooms = JSON.parse(localStorage.getItem('leftRooms') || '[]');
+      if (leftRooms.length > 0) {
+        console.log(`[페이지 로드] 나간 방 ${leftRooms.length}개 확인:`, leftRooms);
+        const beforeCount = chatData.roomList.length;
+        chatData.roomList = chatData.roomList.filter(room => !leftRooms.includes(room.name));
+        const afterCount = chatData.roomList.length;
+        if (beforeCount !== afterCount) {
+          console.log(`[페이지 로드] ${beforeCount - afterCount}개 채팅방 제거됨 (${beforeCount} → ${afterCount})`);
+          saveChatData();
+        }
+      }
+      
       updateRoomListUI();
+      
+      // 관심분야 목록 다시 렌더링 (나간 방과 관계없이 항상 표시)
+      const profile = JSON.parse(localStorage.getItem('anonProfile') || 'null');
+      if (profile && profile.interests) {
+        updateInterestList(profile.interests);
+        console.log(`[페이지 로드] 관심분야 목록 ${profile.interests.length}개 다시 렌더링`);
+      }
       
       // 채팅 옵션 버튼 이벤트
       document.getElementById('chatOptions').addEventListener('click', toggleChatOptions);
@@ -3010,6 +3164,26 @@
 
       // 랜덤 매칭 홈으로 돌아가기
       document.getElementById('backToHome').addEventListener('click', backToHome);
+      
+      // 페이지 포커스 시 관심분야 목록 업데이트 (마이페이지에서 수정 후 돌아왔을 때)
+      window.addEventListener('focus', function() {
+        const profile = JSON.parse(localStorage.getItem('anonProfile') || 'null');
+        if (profile && profile.interests) {
+          updateInterestList(profile.interests);
+          console.log(`[페이지 포커스] 관심분야 목록 업데이트: ${profile.interests.length}개`);
+        }
+      });
+      
+      // 페이지 보이기 이벤트 (탭 전환 시)
+      document.addEventListener('visibilitychange', function() {
+        if (!document.hidden) {
+          const profile = JSON.parse(localStorage.getItem('anonProfile') || 'null');
+          if (profile && profile.interests) {
+            updateInterestList(profile.interests);
+            console.log(`[페이지 가시화] 관심분야 목록 업데이트: ${profile.interests.length}개`);
+          }
+        }
+      });
 
       // 모바일 메뉴는 navigation.js에서 처리됩니다
     });

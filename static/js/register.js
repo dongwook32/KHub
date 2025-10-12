@@ -39,12 +39,18 @@
   function showError(fieldId, message) {
     const input = document.getElementById(fieldId);
     const errorElement = document.getElementById(fieldId + 'Error');
+    const successElement = document.getElementById(fieldId + 'Success');
     
     if (input && errorElement) {
       input.classList.add('is-invalid');
       input.classList.remove('is-valid');
       input.setAttribute('aria-invalid', 'true');
       errorElement.textContent = message;
+      
+      // 성공 메시지 숨기기
+      if (successElement) {
+        successElement.style.display = 'none';
+      }
     }
   }
 
@@ -65,13 +71,20 @@
   /**
    * 성공 상태 표시
    */
-  function showSuccess(fieldId) {
+  function showSuccess(fieldId, message = '') {
     const input = document.getElementById(fieldId);
+    const successElement = document.getElementById(fieldId + 'Success');
     
     if (input) {
       input.classList.add('is-valid');
       input.classList.remove('is-invalid');
       input.setAttribute('aria-invalid', 'false');
+      
+      // 성공 메시지 표시
+      if (successElement && message) {
+        successElement.textContent = message;
+        successElement.style.display = 'block';
+      }
     }
   }
 
@@ -159,12 +172,13 @@
     // 학번 중복 체크 (서버 API 호출)
     const isDuplicate = await checkStudentIdDuplicate(value);
     if (isDuplicate) {
-      showError('student_id', '이미 존재하는 학번입니다. 다른 학번으로 회원가입해주세요.');
+      showError('student_id', '⚠️ 이미 존재하는 학번입니다! 다른 학번으로 회원가입해주세요.');
+      showAlert('이미 가입된 학번입니다. 다른 학번을 입력해주세요.', 'error');
       return false;
     }
     
     clearError('student_id');
-    showSuccess('student_id');
+    showSuccess('student_id', '✓ 사용 가능한 학번입니다.');
     return true;
   }
 
@@ -345,8 +359,10 @@
 
     // 학번
     const studentIdInput = document.getElementById('student_id');
+    let studentIdValidated = false;
+    
     studentIdInput.addEventListener('blur', async function() {
-      await validateStudentId();
+      studentIdValidated = await validateStudentId();
     });
     studentIdInput.addEventListener('input', async function() {
       // 숫자만 입력 허용
@@ -358,7 +374,10 @@
       }
       
       if (this.value.length === 9) {
-        await validateStudentId();
+        studentIdValidated = await validateStudentId();
+      } else {
+        studentIdValidated = false;
+        clearError('student_id');
       }
     });
 
@@ -408,6 +427,8 @@
     form.addEventListener('submit', async function(e) {
       e.preventDefault();
       
+      console.log('[폼 제출] 검증 시작...');
+      
       // 모든 검증 실행 (비동기 함수 포함)
       const validations = await Promise.all([
         validateName(),
@@ -420,19 +441,25 @@
         validatePasswordConfirm()
       ]);
       
+      console.log('[폼 검증 결과]', validations);
+      
       const isValid = validations.every(result => result === true);
       
       if (!isValid) {
+        console.log('[폼 제출 실패] 검증 실패');
         showAlert('입력하신 정보를 확인해주세요.', 'error');
         focusFirstError();
         return false;
       }
       
+      console.log('[폼 제출 성공] 서버로 전송...');
+      
       // 폼 제출
       form.classList.add('form-loading');
       
-      // 실제 제출
-      this.submit();
+      // 실제 제출 (HTML 기본 폼 제출)
+      // submit() 메서드를 사용하면 이벤트 리스너를 우회하므로 주의
+      HTMLFormElement.prototype.submit.call(this);
     });
 
     // ========== 초기화 ==========

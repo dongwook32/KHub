@@ -1,0 +1,20 @@
+[
+  {
+    "id": "p1760250744212",
+    "title": "we",
+    "content": "werwr",
+    "author": "익명1",
+    "authorStudentId": "202204035",
+    "year": 22,
+    "status": null,
+    "createdAt": "2025-10-12T06:32:24.213Z",
+    "views": 0,
+    "likes": 0,
+    "comments": 1,
+    "tags": [],
+    "boardId": "ai_study",
+    "departmentId": null,
+    "type": "question",
+    "category": "자유게시판"
+  }
+]

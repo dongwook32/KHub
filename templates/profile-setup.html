@@ -55,26 +55,7 @@
         box-shadow: 0 8px 25px rgba(255, 159, 128, 0.15);
     }
     
-    .gender-btn {
-        background: #f8f9fa;
-        border-color: #dee2e6;
-        color: #6c757d;
-        transition: all 0.3s ease;
-    }
-    
-    .gender-btn:hover {
-        background: #e9ecef;
-        border-color: #FF9F80;
-        color: #495057;
-    }
-    
-    .gender-btn.active {
-        background: #f8f9fa;
-        border-color: #FF7B54;
-        border-width: 2px;
-        color: #495057;
-        font-weight: 600;
-    }
+    /* 성별 버튼 스타일은 더 이상 필요하지 않음 */
     
     .interest-chip.selected {
         background: linear-gradient(135deg, #FF9F80, #FFC8B2);
@@ -188,16 +169,16 @@
                 
                 <div class="form-group">
                     <label class="block text-sm font-semibold text-gray-700 mb-2">
-                        <span class="inline-block mr-2">👤</span>성별 선택
+                        <span class="inline-block mr-2">👤</span>성별 (회원가입 정보 연동)
                     </label>
-                    <input type="hidden" name="gender" id="gender_input" value="남자" required>
+                    <input type="hidden" name="gender" id="gender_input" value="" required>
                     <div class="flex gap-2">
-                        <button type="button" class="gender-btn flex-1 py-3 px-4 border-2 border-gray-200 rounded-2xl text-gray-600 font-medium transition-all duration-300 hover:border-peach/50 hover:bg-peach/10 active" data-gender="남자" onclick="selectGender(this)">
-                            <span class="mr-2">🙋‍♂️</span>남자
-                        </button>
-                        <button type="button" class="gender-btn flex-1 py-3 px-4 border-2 border-gray-200 rounded-2xl text-gray-600 font-medium transition-all duration-300 hover:border-peach/50 hover:bg-peach/10" data-gender="여자" onclick="selectGender(this)">
-                            <span class="mr-2">🙋‍♀️</span>여자
-                        </button>
+                        <div id="gender_display" class="flex-1 py-3 px-4 border-2 border-gray-200 rounded-2xl text-gray-600 font-medium bg-gray-50 cursor-not-allowed">
+                            <span id="gender_emoji" class="mr-2">👤</span><span id="gender_text">로딩중...</span>
+                        </div>
+                    </div>
+                    <div class="text-xs text-gray-500 mt-1">
+                        회원가입 시 입력한 성별이 자동으로 적용됩니다.
                     </div>
                 </div>
             </div>
@@ -301,15 +282,7 @@
   </footer>
 
   <script>
-    // 성별 선택 함수
-    function selectGender(button) {
-        const allGenderBtns = document.querySelectorAll('.gender-btn');
-        allGenderBtns.forEach(btn => btn.classList.remove('active'));
-        button.classList.add('active');
-        
-        // hidden input에 선택된 성별 저장
-        document.getElementById('gender_input').value = button.dataset.gender;
-    }
+    // 성별 선택 함수는 더 이상 필요하지 않음 (회원가입 정보에서 자동 설정)
     
     // 닉네임 중복 체크 함수
     let nicknameCheckTimeout = null;
@@ -359,6 +332,52 @@
         }
     }
 
+    // 회원가입 정보에서 성별 가져오기
+    function loadUserGender() {
+        try {
+            // 서버에서 사용자 정보 가져오기 (Flask 세션에서)
+            fetch('/api/user-info')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.user) {
+                        const userGender = data.user.gender;
+                        setGenderDisplay(userGender);
+                    } else {
+                        console.error('사용자 정보를 가져올 수 없습니다:', data.message);
+                        setGenderDisplay('남자'); // 기본값
+                    }
+                })
+                .catch(error => {
+                    console.error('사용자 정보 로드 실패:', error);
+                    setGenderDisplay('남자'); // 기본값
+                });
+        } catch (e) {
+            console.error('성별 로드 실패:', e);
+            setGenderDisplay('남자'); // 기본값
+        }
+    }
+    
+    // 성별 표시 설정
+    function setGenderDisplay(gender) {
+        const genderEmoji = gender === '남자' ? '🙋‍♂️' : '🙋‍♀️';
+        const genderDisplay = document.getElementById('gender_display');
+        const genderEmojiSpan = document.getElementById('gender_emoji');
+        const genderTextSpan = document.getElementById('gender_text');
+        const genderInput = document.getElementById('gender_input');
+        
+        // 표시 업데이트
+        genderEmojiSpan.textContent = genderEmoji;
+        genderTextSpan.textContent = gender;
+        genderInput.value = gender;
+        
+        // 스타일 업데이트
+        genderDisplay.style.borderColor = '#FF9F80';
+        genderDisplay.style.background = 'linear-gradient(135deg, #FF9F80, #FFC8B2)';
+        genderDisplay.style.color = 'white';
+        
+        console.log(`[성별 설정] 회원가입 정보에서 ${gender}로 설정됨`);
+    }
+
     // 기존 익명 프로필 로드
     function loadExistingProfile() {
         try {
@@ -373,13 +392,7 @@
                     document.getElementById('ap_year').value = profile.year;
                 }
                 
-                // 성별 선택
-                if (profile.gender) {
-                    const genderBtn = document.querySelector(`[data-gender="${profile.gender}"]`);
-                    if (genderBtn) {
-                        selectGender(genderBtn);
-                    }
-                }
+                // 성별은 회원가입 정보에서 자동 설정되므로 건드리지 않음
                 
                 // 닉네임 입력
                 if (profile.nickname) {
@@ -416,6 +429,9 @@
     document.addEventListener('DOMContentLoaded', function(){
         // 년도 설정
         document.getElementById('year').textContent = new Date().getFullYear();
+        
+        // 회원가입 정보에서 성별 로드
+        loadUserGender();
         
         // 기존 프로필 로드
         loadExistingProfile();

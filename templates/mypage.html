@@ -469,10 +469,14 @@
           </select>
         </div>
         <div class="form-group">
-          <label>성별</label>
-          <div class="flex gap-2">
-            <button type="button" class="gender-btn flex-1 py-2 px-4 border rounded" data-gender="남자" onclick="selectAnonGender(this)">남자</button>
-            <button type="button" class="gender-btn flex-1 py-2 px-4 border rounded" data-gender="여자" onclick="selectAnonGender(this)">여자</button>
+          <label>성별 (회원가입 정보 연동)</label>
+          <div id="editAnonGender" class="flex gap-2">
+            <div class="flex-1 py-2 px-4 border rounded bg-gray-100 text-gray-600 text-center cursor-not-allowed">
+              <span id="editGenderEmoji">👤</span> <span id="editGenderText">로딩중...</span>
+            </div>
+          </div>
+          <div class="text-xs text-gray-500 mt-1">
+            회원가입 시 입력한 성별이 자동으로 적용됩니다.
           </div>
         </div>
         <div class="form-group">
@@ -665,10 +669,26 @@
       }
     });
 
-    // 익명카드 정보 로드
-    function loadAnonProfile() {
+    // 익명카드 정보 로드 (서버에서 최신 데이터 가져오기)
+    async function loadAnonProfile() {
       try {
-        const anonProfile = JSON.parse(localStorage.getItem('anonProfile') || 'null');
+        // 서버에서 최신 익명 프로필 가져오기
+        const response = await fetch('/api/anon-profile');
+        const result = await response.json();
+        
+        let anonProfile = null;
+        
+        if (result.success && result.profile) {
+          // 서버에서 받은 프로필을 localStorage에 저장
+          localStorage.setItem('anonProfile', JSON.stringify(result.profile));
+          anonProfile = result.profile;
+          console.log('[익명카드 로드] 서버에서 최신 프로필 가져옴:', anonProfile);
+        } else {
+          // 서버에 없으면 localStorage에서 가져오기
+          anonProfile = JSON.parse(localStorage.getItem('anonProfile') || 'null');
+          console.log('[익명카드 로드] localStorage에서 프로필 가져옴:', anonProfile);
+        }
+        
         if (anonProfile) {
           document.getElementById('anonNickname').textContent = anonProfile.nickname || '익명의친구';
           document.getElementById('anonYear').textContent = anonProfile.year || '-';
@@ -691,11 +711,51 @@
       }
     }
 
-    // 성별 선택 함수
-    function selectAnonGender(button) {
-      const allGenderBtns = document.querySelectorAll('.gender-btn');
-      allGenderBtns.forEach(btn => btn.classList.remove('active'));
-      button.classList.add('active');
+    // 성별 선택 함수는 더 이상 필요하지 않음 (회원가입 정보에서 자동 설정)
+    
+    // 회원가입 정보에서 성별 가져오기
+    let userGender = '남자'; // 전역 변수로 저장
+    
+    async function loadUserGenderForMypage() {
+      try {
+        const response = await fetch('/api/user-info');
+        const data = await response.json();
+        
+        if (data.success && data.user) {
+          userGender = data.user.gender || '남자';
+          setGenderDisplayForMypage(userGender);
+        } else {
+          console.error('사용자 정보를 가져올 수 없습니다:', data.message);
+          setGenderDisplayForMypage('남자'); // 기본값
+        }
+      } catch (error) {
+        console.error('사용자 정보 로드 실패:', error);
+        setGenderDisplayForMypage('남자'); // 기본값
+      }
+    }
+    
+    // 성별 표시 설정
+    function setGenderDisplayForMypage(gender) {
+      const genderEmoji = gender === '남자' ? '🙋‍♂️' : '🙋‍♀️';
+      const genderEmojiSpan = document.getElementById('editGenderEmoji');
+      const genderTextSpan = document.getElementById('editGenderText');
+      const genderDisplay = document.getElementById('editAnonGender');
+      
+      if (genderEmojiSpan && genderTextSpan && genderDisplay) {
+        // 표시 업데이트
+        genderEmojiSpan.textContent = genderEmoji;
+        genderTextSpan.textContent = gender;
+        
+        // 스타일 업데이트
+        const displayDiv = genderDisplay.querySelector('div');
+        if (displayDiv) {
+          displayDiv.style.background = 'linear-gradient(135deg, #FF9F80, #FFC8B2)';
+          displayDiv.style.color = 'white';
+          displayDiv.style.borderColor = '#FF9F80';
+        }
+        
+        console.log(`[마이페이지] 회원가입 정보에서 ${gender}로 설정됨`);
+      }
     }
 
     // 관심사 토글 함수
@@ -730,7 +790,7 @@
     async function saveAnonProfile() {
       const nickname = document.getElementById('editAnonNickname').value.trim() || '익명의친구';
       const year = document.getElementById('editAnonYear').value;
-      const gender = document.querySelector('.gender-btn.active')?.dataset.gender || '남자';
+      const gender = userGender; // 회원가입 정보에서 가져온 성별 사용
       const bio = document.getElementById('editAnonBio').value.trim();
       const interests = Array.from(document.querySelectorAll('.interest-chip.selected')).map(chip => chip.dataset.value);
       
@@ -754,6 +814,9 @@
         }
       }
       
+      // 이전 프로필 저장 (변경 사항 비교용)
+      const originalProfile = JSON.parse(localStorage.getItem('anonProfile') || 'null');
+      
       const anonProfile = { 
         nickname, 
         year, 
@@ -776,7 +839,33 @@
         const result = await response.json();
         
         if (result.success) {
-          // localStorage에도 저장
+          // 새로 추가된 관심사는 leftRooms에서 제거 (다시 입장 가능하도록)
+          try {
+            let leftRooms = JSON.parse(localStorage.getItem('leftRooms') || '[]');
+            
+            // 새로 추가된 관심사 찾기
+            let newInterests = [];
+            if (originalProfile && originalProfile.interests) {
+              // 기존 프로필이 있는 경우: 새로 추가된 관심사만
+              newInterests = interests.filter(interest => 
+                !originalProfile.interests.includes(interest)
+              );
+            } else {
+              // 기존 프로필이 없는 경우: 모든 관심사가 새로운 것
+              newInterests = interests;
+            }
+            
+            // 새로 추가된 관심사를 leftRooms에서 제거
+            if (newInterests.length > 0) {
+              leftRooms = leftRooms.filter(room => !newInterests.includes(room));
+              localStorage.setItem('leftRooms', JSON.stringify(leftRooms));
+              console.log(`[관심사 복구] ${newInterests.join(', ')}를 나간 방 목록에서 제거 (${leftRooms.length}개 남음)`);
+            }
+          } catch (e) {
+            console.error('[관심사 복구 오류]:', e);
+          }
+          
+          // localStorage에도 저장 (leftRooms 업데이트 후에 저장)
           localStorage.setItem('anonProfile', JSON.stringify(anonProfile));
           
           loadAnonProfile(); // UI 업데이트
@@ -792,30 +881,57 @@
     }
 
     // 모달 열 때 기존 데이터 로드
-    function openModal(modalId) {
+    async function openModal(modalId) {
       document.getElementById(modalId).style.display = 'flex';
       
       if (modalId === 'profileModal') {
+        // 회원가입 정보에서 성별 로드
+        loadUserGenderForMypage();
+        
+        // 서버에서 최신 익명 프로필 가져오기
+        try {
+          const response = await fetch('/api/anon-profile');
+          const result = await response.json();
+          
+          if (result.success && result.profile) {
+            // 서버에서 받은 프로필을 localStorage에 저장
+            localStorage.setItem('anonProfile', JSON.stringify(result.profile));
+            console.log('[모달 열기] 서버에서 최신 익명 프로필 로드:', result.profile);
+          }
+        } catch (error) {
+          console.error('[모달 열기] 서버에서 프로필 로드 실패:', error);
+        }
+        
+        // 최신 익명 프로필 가져오기 (localStorage에서 다시 읽음)
         const anonProfile = JSON.parse(localStorage.getItem('anonProfile') || 'null');
+        
+        console.log('[모달 열기] 최종 익명 프로필:', anonProfile);
+        
         if (anonProfile) {
           document.getElementById('editAnonNickname').value = anonProfile.nickname || '';
           document.getElementById('editAnonYear').value = anonProfile.year || '';
           document.getElementById('editAnonBio').value = anonProfile.bio || '';
           
-          // 성별 선택 복원
-          const genderBtns = document.querySelectorAll('.gender-btn');
-          genderBtns.forEach(btn => btn.classList.remove('active'));
-          const selectedGenderBtn = document.querySelector(`[data-gender="${anonProfile.gender}"]`);
-          if (selectedGenderBtn) selectedGenderBtn.classList.add('active');
+          // 성별은 회원가입 정보에서 자동 설정되므로 건드리지 않음
           
-          // 관심사 선택 복원
+          // 관심사 선택 복원 (모든 체크박스를 먼저 초기화)
           const interestChips = document.querySelectorAll('.interest-chip');
           interestChips.forEach(chip => chip.classList.remove('selected'));
-          if (anonProfile.interests) {
+          
+          // 익명 프로필에 있는 관심사만 선택
+          if (anonProfile.interests && anonProfile.interests.length > 0) {
+            console.log('[모달 열기] 복원할 관심사:', anonProfile.interests);
             anonProfile.interests.forEach(interest => {
               const chip = document.querySelector(`[data-value="${interest}"]`);
-              if (chip) chip.classList.add('selected');
+              if (chip) {
+                chip.classList.add('selected');
+                console.log(`[관심사 복원] ${interest} 선택됨`);
+              } else {
+                console.warn(`[관심사 복원] ${interest}에 해당하는 칩을 찾을 수 없음`);
+              }
             });
+          } else {
+            console.log('[모달 열기] 선택된 관심사 없음');
           }
           
           // 닉네임 실시간 검증 이벤트 리스너 추가
@@ -1316,6 +1432,20 @@
       loadAnonProfile();
       loadUserProfile();
       loadMyActivity();
+      
+      // 페이지 포커스 시 익명 프로필 다시 로드 (랜덤채팅에서 수정 후 돌아왔을 때)
+      window.addEventListener('focus', function() {
+        loadAnonProfile();
+        console.log('[페이지 포커스] 익명 프로필 다시 로드됨');
+      });
+      
+      // 페이지 보이기 이벤트 (탭 전환 시)
+      document.addEventListener('visibilitychange', function() {
+        if (!document.hidden) {
+          loadAnonProfile();
+          console.log('[페이지 가시화] 익명 프로필 다시 로드됨');
+        }
+      });
     });
 
     // 로그아웃
@@ -1364,15 +1494,27 @@
             localStorage.removeItem('isLoggedIn');
           }
           
+          // 채팅 관련 데이터 삭제
+          localStorage.removeItem('chatData');
+          localStorage.removeItem('leftRooms');
+          localStorage.removeItem('randomProfiles');
+          localStorage.removeItem('groupMatchingQueue');
+          
+          // 게시판 관련 데이터 삭제
+          localStorage.removeItem('boardPosts');
+          localStorage.removeItem('boardComments');
+          
           // 기타 관련 데이터 삭제
           const keysToRemove = [];
           for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i);
-            if (key && (key.startsWith('activity_') || key.includes('user') || key.includes('profile'))) {
+            if (key && (key.startsWith('activity_') || key.includes('user') || key.includes('profile') || key.includes('chat') || key.includes('room'))) {
               keysToRemove.push(key);
             }
           }
           keysToRemove.forEach(key => localStorage.removeItem(key));
+          
+          console.log('[회원 탈퇴] 모든 사용자 데이터 삭제 완료');
           
           // 모달 닫기
           closeModal('deleteModal');

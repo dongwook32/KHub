@@ -29,8 +29,10 @@ def save_users(users):
     try:
         with open(DATA_FILE, 'w', encoding='utf-8') as f:
             json.dump(users, f, ensure_ascii=False, indent=2)
+        print(f"[데이터 저장 성공] {len(users)}명의 사용자 정보 저장됨")
         return True
-    except:
+    except Exception as e:
+        print(f"[데이터 저장 실패] 오류: {e}")
         return False
 
 def is_student_id_duplicate(student_id):
@@ -120,19 +122,45 @@ def index():
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
+    # 이미 로그인된 경우 홈으로 리다이렉트
+    if 'user' in session and session.get('user'):
+        flash('이미 로그인되어 있습니다.', 'info')
+        return redirect(url_for('index'))
+    
     if request.method == 'POST':
         # 회원가입 데이터 수집
-        name = request.form.get('name')
-        student_id = request.form.get('student_id')
-        birthday = request.form.get('birthday')
-        gender = request.form.get('gender')
-        status = request.form.get('status')
-        email = request.form.get('email')
-        password = request.form.get('password')
+        name = request.form.get('name', '').strip()
+        student_id = request.form.get('student_id', '').strip()
+        birthday = request.form.get('birthday', '').strip()
+        gender = request.form.get('gender', '').strip()
+        status = request.form.get('status', '').strip()
+        email = request.form.get('email', '').strip()
+        password = request.form.get('password', '').strip()
+        
+        print(f"[회원가입 시도] 학번: {student_id}, 이름: {name}, 이메일: {email}")
+        
+        # 필수 필드 검증
+        if not all([name, student_id, birthday, gender, status, email, password]):
+            flash('모든 필수 항목을 입력해주세요.', 'error')
+            print("[회원가입 실패] 필수 항목 누락")
+            return redirect(url_for('register'))
+        
+        # 학번 형식 검증 (9자리 숫자)
+        if not student_id.isdigit() or len(student_id) != 9:
+            flash('학번은 9자리 숫자여야 합니다.', 'error')
+            print(f"[회원가입 실패] 잘못된 학번 형식: {student_id}")
+            return redirect(url_for('register'))
+        
+        # 이메일 형식 검증
+        if not email.endswith('@bible.ac.kr'):
+            flash('@bible.ac.kr 도메인 이메일만 사용 가능합니다.', 'error')
+            print(f"[회원가입 실패] 잘못된 이메일 형식: {email}")
+            return redirect(url_for('register'))
         
         # 학번 중복 체크
         if is_student_id_duplicate(student_id):
             flash('이미 존재하는 학번입니다. 다른 학번으로 회원가입해주세요.', 'error')
+            print(f"[회원가입 실패] 중복된 학번: {student_id}")
             return redirect(url_for('register'))
         
         # 사용자 정보 저장
@@ -150,17 +178,22 @@ def register():
         
         if not save_users(users):
             flash('회원가입 중 오류가 발생했습니다. 다시 시도해주세요.', 'error')
+            print("[회원가입 실패] 데이터 저장 오류")
             return redirect(url_for('register'))
         
-        # 회원가입 성공 - 세션에 저장하지 않음 (로그인 필요)
+        # 회원가입 성공
+        print(f"[회원가입 성공] 학번: {student_id}, 이름: {name}")
         flash('회원가입이 완료되었습니다! 로그인해주세요.', 'success')
-        # 로그인 페이지로 리디렉트
         return redirect(url_for('login'))
     
     return render_template('register.html')
 
 @app.route('/login', methods=['GET'])
 def login():
+    # 이미 로그인된 경우 홈으로 리다이렉트
+    if 'user' in session and session.get('user'):
+        flash('이미 로그인되어 있습니다.', 'info')
+        return redirect(url_for('index'))
     return render_template('login.html')
 
 @app.route('/login', methods=['POST'])
@@ -266,6 +299,10 @@ def chat():
         user_profile = next((p for p in all_profiles if p.get('student_id') == student_id), None)
         if user_profile:
             anon_profile = user_profile
+        else:
+            # 익명 프로필이 없으면 프로필 설정 페이지로 리디렉션
+            flash('먼저 익명 프로필을 만들어주세요!', 'info')
+            return redirect(url_for('profile_setup'))
     
     return render_template('chat.html', anon_profile=anon_profile)
 
@@ -805,6 +842,49 @@ def save_anon_profile_api():
         return jsonify({'success': False, 'message': '프로필 저장 중 오류가 발생했습니다.'}), 500
     
     return jsonify({'success': True, 'message': '익명 프로필이 저장되었습니다.'})
+
+@app.route('/api/anon-profile', methods=['GET'])
+def get_anon_profile_api():
+    """현재 로그인한 사용자의 익명 프로필 가져오기"""
+    # 로그인 체크
+    if 'user' not in session or not session.get('user'):
+        return jsonify({'success': False, 'message': '로그인이 필요합니다.'}), 401
+    
+    current_user = session.get('user', {})
+    student_id = current_user.get('student_id')
+    
+    if not student_id:
+        return jsonify({'success': False, 'message': '사용자 정보를 찾을 수 없습니다.'}), 400
+    
+    # 익명 프로필 조회
+    profiles = load_anon_profiles()
+    user_profile = next((p for p in profiles if p.get('student_id') == student_id), None)
+    
+    if user_profile:
+        return jsonify({'success': True, 'profile': user_profile})
+    else:
+        return jsonify({'success': False, 'message': '익명 프로필이 없습니다.', 'profile': None})
+
+@app.route('/api/user-info', methods=['GET'])
+def get_user_info():
+    """현재 로그인한 사용자 정보 반환"""
+    # 로그인 체크
+    if 'user' not in session or not session.get('user'):
+        return jsonify({'success': False, 'message': '로그인이 필요합니다.'}), 401
+    
+    user = session.get('user', {})
+    return jsonify({
+        'success': True, 
+        'user': {
+            'name': user.get('name'),
+            'student_id': user.get('student_id'),
+            'gender': user.get('gender'),
+            'birthday': user.get('birthday'),
+            'status': user.get('status'),
+            'email': user.get('email'),
+            'department': user.get('department')
+        }
+    })
 
 @app.route('/profile-setup', methods=['GET', 'POST'])
 def profile_setup():

@@ -1,0 +1,26 @@
+[
+  {
+    "student_id": "202204035",
+    "nickname": "컴소똥Ed44fgd",
+    "year": "22학번",
+    "gender": "남자",
+    "bio": "12123qrqwr",
+    "interests": [
+      "영화",
+      "운동"
+    ],
+    "avatar": "컴"
+  },
+  {
+    "student_id": "202204031",
+    "nickname": "14124",
+    "year": "23학번",
+    "gender": "남자",
+    "bio": "123132",
+    "interests": [
+      "운동",
+      "게임"
+    ],
+    "avatar": "1"
+  }
+]
