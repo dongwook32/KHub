@@ -188,7 +188,8 @@ def try_matching(matching_data):
                     'user1_entered': False,
                     'user2_entered': False,
                     'user1_entered_at': None,
-                    'user2_entered_at': None
+                    'user2_entered_at': None,
+                    'active': True
                 }
                 
                 # 방 정보 저장
@@ -196,10 +197,11 @@ def try_matching(matching_data):
                 rooms_data[room_id] = room_data
                 save_chat_rooms(rooms_data)
                 
-                # 대기열에서 제거
-                waiting_list.remove(user1)
-                waiting_list.remove(user2)
-                matching_data['waiting'] = waiting_list
+                # 대기열에서 제거 (정확한 필터링)
+                matching_data['waiting'] = [
+                    w for w in waiting_list 
+                    if w.get('student_id') not in [user1['student_id'], user2['student_id']]
+                ]
                 save_matching_queue(matching_data)
                 
                 print(f"[매칭 성공] {user1['nickname']} ↔ {user2['nickname']} (방 ID: {room_id})")
@@ -848,7 +850,8 @@ def send_chat_message(room_id):
         'sender': sender_nickname,
         'content': message,
         'timestamp': time.time(),
-        'created_at': datetime.now().isoformat()
+        'created_at': datetime.now().isoformat(),
+        'type': 'text'
     }
     
     all_messages[room_id].append(new_message)
@@ -977,6 +980,32 @@ def start_matching():
     if existing_wait:
         return jsonify({'success': False, 'message': '이미 매칭 대기 중입니다.'}), 400
     
+    # 이미 매칭된 방이 있는지 확인 (활성화된 방만)
+    rooms_data = load_chat_rooms()
+    existing_room = None
+    for room_id, room in rooms_data.items():
+        # 비활성화된 방은 제외
+        if room.get('active', True) == False:
+            continue
+            
+        if current_student_id in [room.get('user1_id'), room.get('user2_id')]:
+            # 방이 아직 활성 상태인지 확인 (나가기하지 않은 상태)
+            existing_room = room
+            break
+    
+    if existing_room:
+        other_student_id = existing_room['user2_id'] if current_student_id == existing_room['user1_id'] else existing_room['user1_id']
+        other_nickname = existing_room['user2_nickname'] if current_student_id == existing_room['user1_id'] else existing_room['user1_nickname']
+        
+        return jsonify({
+            'success': False, 
+            'message': f'이미 {other_nickname}님과 매칭된 방이 있습니다.',
+            'existing_room': {
+                'room_id': existing_room['room_id'],
+                'other_nickname': other_nickname
+            }
+        }), 400
+    
     # 대기열에 추가
     waiting_user = {
         'student_id': current_student_id,
@@ -1035,24 +1064,36 @@ def enter_room(room_id):
     room = rooms_data.get(room_id)
     
     if not room:
+        print(f"[에러] 존재하지 않는 방: {room_id}")
         return jsonify({'success': False, 'message': '채팅방을 찾을 수 없습니다.'}), 404
+    
+    # 비활성화된 방 체크
+    if room.get('active', True) == False:
+        print(f"[에러] 비활성화된 방 접근 시도: {room_id} (사용자: {current_student_id})")
+        return jsonify({'success': False, 'message': '비활성화된 방입니다.'}), 403
     
     # 사용자가 이 방에 참여할 수 있는지 확인
     if current_student_id not in [room['user1_id'], room['user2_id']]:
+        print(f"[에러] 권한 없는 방 접근 시도: {room_id} (사용자: {current_student_id})")
         return jsonify({'success': False, 'message': '이 방에 참여할 권한이 없습니다.'}), 403
     
-    # 입장 상태 업데이트
+    # 입장 상태 업데이트 (멱등 처리)
+    is_first_join = False
     if current_student_id == room['user1_id']:
-        room['user1_entered'] = True
-        room['user1_entered_at'] = time.time()
+        if not room.get('user1_entered', False):
+            room['user1_entered'] = True
+            room['user1_entered_at'] = time.time()
+            is_first_join = True
     else:
-        room['user2_entered'] = True
-        room['user2_entered_at'] = time.time()
+        if not room.get('user2_entered', False):
+            room['user2_entered'] = True
+            room['user2_entered_at'] = time.time()
+            is_first_join = True
     
     rooms_data[room_id] = room
     save_chat_rooms(rooms_data)
     
-    # 입장 메시지 생성
+    # 입장 메시지 생성 (멱등 처리)
     user_profile = None
     all_profiles = load_anon_profiles()
     for profile in all_profiles:
@@ -1062,11 +1103,6 @@ def enter_room(room_id):
     
     nickname = user_profile.get('nickname', '익명') if user_profile else '익명'
     
-    # 입장 메시지 추가
-    messages = load_chat_messages()
-    if room_id not in messages:
-        messages[room_id] = []
-    
     # 상대방이 이미 입장했는지 확인
     other_user_entered = False
     if current_student_id == room['user1_id']:
@@ -1074,39 +1110,92 @@ def enter_room(room_id):
     else:
         other_user_entered = room.get('user1_entered', False)
     
-    if other_user_entered:
-        # 양쪽 모두에게 상대방 입장 메시지 전송
-        enter_message = {
-            'id': f"enter_{int(time.time() * 1000)}",
-            'sender': '시스템',
-            'content': f'{nickname}님이 방에 입장했습니다.',
-            'timestamp': time.time(),
-            'created_at': datetime.now().isoformat(),
-            'type': 'enter'
-        }
-        messages[room_id].append(enter_message)
-        print(f"[입장] {nickname}님이 {room_id} 방에 입장 (상대방 이미 입장함)")
+    # 첫 입장일 때만 메시지 추가 (중복 방지)
+    if is_first_join:
+        messages = load_chat_messages()
+        if room_id not in messages:
+            messages[room_id] = []
+        
+        # 직전 시스템 메시지 확인 (중복 방지)
+        last_message = messages[room_id][-1] if messages[room_id] else None
+        should_add_message = True
+        
+        if last_message and last_message.get('type') in ['wait', 'enter']:
+            # 이미 시스템 메시지가 있으면 중복 추가하지 않음
+            should_add_message = False
+        
+        if should_add_message:
+            if other_user_entered:
+                # 양쪽 모두에게 상대방 입장 메시지 전송
+                enter_message = {
+                    'id': f"enter_{int(time.time() * 1000)}",
+                    'sender': '시스템',
+                    'content': f'{nickname}님이 방에 입장했습니다.',
+                    'timestamp': time.time(),
+                    'created_at': datetime.now().isoformat(),
+                    'type': 'enter'
+                }
+                messages[room_id].append(enter_message)
+                print(f"[입장] {nickname}님이 {room_id} 방에 입장 (상대방 이미 입장함)")
+            else:
+                # 첫 번째 입장자에게만 메시지
+                wait_message = {
+                    'id': f"wait_{int(time.time() * 1000)}",
+                    'sender': '시스템',
+                    'content': '상대방이 아직 방에 입장하지 않았습니다.',
+                    'timestamp': time.time(),
+                    'created_at': datetime.now().isoformat(),
+                    'type': 'wait'
+                }
+                messages[room_id].append(wait_message)
+                print(f"[입장] {nickname}님이 {room_id} 방에 입장 (첫 번째 입장자)")
+        
+        # 메시지 저장
+        save_chat_messages(messages)
     else:
-        # 첫 번째 입장자에게만 메시지
-        enter_message = {
-            'id': f"wait_{int(time.time() * 1000)}",
-            'sender': '시스템',
-            'content': '상대방이 아직 방에 입장하지 않았습니다.',
-            'timestamp': time.time(),
-            'created_at': datetime.now().isoformat(),
-            'type': 'wait'
-        }
-        messages[room_id].append(enter_message)
-        print(f"[입장] {nickname}님이 {room_id} 방에 입장 (첫 번째 입장자)")
-    
-    # 메시지 저장
-    save_chat_messages(messages)
+        print(f"[입장] {nickname}님이 {room_id} 방에 재입장 (이미 입장한 상태)")
     
     return jsonify({
         'success': True,
         'message': '방에 입장했습니다.',
         'room_data': room,
         'other_user_entered': other_user_entered
+    })
+
+@app.route('/api/room/<room_id>/leave', methods=['POST'])
+def leave_room(room_id):
+    """채팅방 나가기 (방 비활성화)"""
+    # 로그인 체크
+    if 'user' not in session or not session.get('user'):
+        return jsonify({'success': False, 'message': '로그인이 필요합니다.'}), 401
+    
+    current_user = session.get('user', {})
+    current_student_id = current_user.get('student_id')
+    
+    # 방 정보 가져오기
+    rooms_data = load_chat_rooms()
+    room = rooms_data.get(room_id)
+    
+    if not room:
+        return jsonify({'success': False, 'message': '채팅방을 찾을 수 없습니다.'}), 404
+    
+    # 사용자가 이 방에 참여할 수 있는지 확인
+    if current_student_id not in [room['user1_id'], room['user2_id']]:
+        return jsonify({'success': False, 'message': '이 방에 참여할 권한이 없습니다.'}), 403
+    
+    # 방을 비활성화 (삭제하지 않고 비활성화 상태로 표시)
+    room['active'] = False
+    room['left_at'] = time.time()
+    room['left_by'] = current_student_id
+    
+    rooms_data[room_id] = room
+    save_chat_rooms(rooms_data)
+    
+    print(f"[방 나가기] {current_student_id}님이 {room_id} 방을 나감")
+    
+    return jsonify({
+        'success': True,
+        'message': '방에서 나갔습니다.'
     })
 
 @app.route('/api/rooms', methods=['GET'])
@@ -1122,9 +1211,13 @@ def get_user_rooms():
     # 모든 방 정보 가져오기
     rooms_data = load_chat_rooms()
     
-    # 사용자가 참여한 방들 필터링
+    # 사용자가 참여한 방들 필터링 (활성화된 방만)
     user_rooms = []
     for room_id, room in rooms_data.items():
+        # 비활성화된 방은 제외
+        if room.get('active', True) == False:
+            continue
+            
         if current_student_id in [room.get('user1_id'), room.get('user2_id')]:
             # 상대방 정보 가져오기
             other_student_id = room['user2_id'] if current_student_id == room['user1_id'] else room['user1_id']

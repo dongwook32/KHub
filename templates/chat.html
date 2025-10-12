@@ -1609,6 +1609,15 @@
         
         // 정상적인 방만 표시
         li.addEventListener('click', () => {
+            // 나간 방 목록에서 제거 (재입장 허용)
+            let leftRooms = JSON.parse(localStorage.getItem('leftRooms') || '[]');
+            const roomIndex = leftRooms.indexOf(interest);
+            if (roomIndex > -1) {
+                leftRooms.splice(roomIndex, 1);
+                localStorage.setItem('leftRooms', JSON.stringify(leftRooms));
+                console.log(`[재입장] ${interest} 방을 나간 방 목록에서 제거`);
+            }
+            
             // 관심사 방 입장 시 채팅방 목록에 추가
             const added = addInterestRoom(interest);
             if (added) {
@@ -1635,8 +1644,6 @@
 
     // 관심사 방을 채팅방 목록에 추가
     function addInterestRoom(interest) {
-        // 나간 방은 이미 목록에서 제외되므로 체크 불필요
-        
         // 이미 존재하는 방인지 확인
         const existingRoom = chatData.roomList.find(room => room.name === interest);
         if (existingRoom) {
@@ -1906,8 +1913,51 @@
                         checkMatchingStatus();
                     }
                 } else {
-                    alert(result.message || '매칭 시작에 실패했습니다.');
-                    cancelMatching();
+                    // 매칭 실패 - 기존 방이 있는 경우 처리
+                    if (result.existing_room) {
+                        clearInterval(randomTimer);
+                        randomMatching = false;
+                        document.getElementById('startRandom').style.display = 'block';
+                        document.getElementById('randomMatchingStatus').style.display = 'none';
+                        
+                        // 기존 방을 채팅방 목록에 추가 (없는 경우에만)
+                        const roomName = result.existing_room.other_nickname;
+                        const existingRoom = chatData.roomList.find(room => room.name === roomName);
+                        
+                        if (!existingRoom) {
+                            const newRoom = {
+                                name: roomName,
+                                type: 'dm',
+                                roomId: result.existing_room.room_id,
+                                unreadCount: 0,
+                                createdAt: new Date().toISOString()
+                            };
+                            
+                            chatData.roomList.push(newRoom);
+                            
+                            // roomParticipants에 추가
+                            roomParticipants[roomName] = {
+                                count: 2,
+                                users: [roomName],
+                                unreadCount: 0
+                            };
+                            
+                            // 채팅방 데이터 초기화
+                            if (!chatData.rooms[roomName]) {
+                                chatData.rooms[roomName] = [];
+                            }
+                            
+                            saveChatData();
+                            updateRoomListUI();
+                            
+                            console.log(`[기존 방 복원] ${roomName}과의 기존 방을 목록에 추가`);
+                        }
+                        
+                        alert(`${result.message}\n기존 채팅방으로 이동하세요.`);
+                    } else {
+                        alert(result.message || '매칭 시작에 실패했습니다.');
+                        cancelMatching();
+                    }
                 }
             } catch (error) {
                 console.error('매칭 요청 실패:', error);
@@ -2971,6 +3021,25 @@
           }
         } catch (error) {
           console.error('[나가기 메시지] 서버 전송 실패:', error);
+        }
+        
+        // 1:1 채팅방인 경우 서버에 방 비활성화 요청
+        const roomData = chatData.roomList.find(room => room.name === roomToLeave);
+        if (roomData && roomData.type === 'dm' && roomData.roomId) {
+          try {
+            const roomLeaveResponse = await fetch(`/api/room/${encodeURIComponent(roomData.roomId)}/leave`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              }
+            });
+            
+            if (roomLeaveResponse.ok) {
+              console.log(`[방 비활성화] ${roomToLeave} 방을 서버에서 비활성화 완료`);
+            }
+          } catch (error) {
+            console.error('[방 비활성화] 서버 요청 실패:', error);
+          }
         }
         
         // 나가기 메시지 추가
