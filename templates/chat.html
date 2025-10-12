@@ -2341,18 +2341,25 @@
             document.getElementById('chatContent').style.display = 'none';
             document.getElementById('chatRoom').style.display = 'block';
             
-            // 기존 메시지 로드
-            await loadRoomMessages(roomName);
-            
-            // 메시지 폴링 시작
-            startMessagePolling();
-            
-            console.log(`[입장] ${roomName} 방 입장 완료, 폴링 시작됨`);
-            
-            // 관심분야 방인 경우 참여자 수 증가
+            // 방 정보 가져오기
             const roomData = chatData.roomList.find(room => room.name === roomName);
-            if (roomData && roomData.type === 'interest') {
-                incrementParticipantCount(roomName);
+            
+            // 1:1 채팅방인 경우 서버에서 메시지 로드, 그 외에는 로컬에서 로드
+            if (roomData && roomData.type === 'dm') {
+                // 1:1 채팅방: 서버에서 메시지 로드
+                await loadRoomMessages(roomName);
+                
+                // 메시지 폴링 시작
+                startMessagePolling();
+                console.log(`[입장] ${roomName} 방 입장 완료, 폴링 시작됨`);
+            } else {
+                // 관심분야 방: 로컬에서 메시지 로드
+                loadRoomMessages(roomName);
+                
+                // 참여자 수 증가
+                if (roomData && roomData.type === 'interest') {
+                    incrementParticipantCount(roomName);
+                }
             }
             
             // 참여자 수 표시 (그룹 채팅방인 경우에만)
@@ -2413,14 +2420,14 @@
                         } else {
                             console.log('[입장] 첫 번째 입장자');
                         }
+                        
+                        // 서버에서 받은 메시지 다시 로드 (입장 메시지 포함)
+                        await loadRoomMessages(roomName);
                     }
                 } catch (error) {
                     console.error('[입장] 서버 입장 알림 실패:', error);
                 }
             }
-            
-            // 저장된 메시지 로드
-            loadRoomMessages(roomName);
         }
 
         // 채팅방 메시지 로드
@@ -2525,6 +2532,14 @@
             if (message && currentRoom) {
                 console.log(`[전송] 채팅방: ${currentRoom}, 메시지: ${message}`);
                 
+                // 방 정보 가져오기
+                const roomData = chatData.roomList.find(room => room.name === currentRoom);
+                
+                // 1:1 채팅방인 경우 roomId 사용, 그 외에는 roomName 사용
+                const roomId = (roomData && roomData.type === 'dm' && roomData.roomId) ? roomData.roomId : currentRoom;
+                
+                console.log(`[전송] 실제 채팅방 ID: ${roomId} (타입: ${roomData?.type || 'unknown'})`);
+                
                 // 내 메시지를 즉시 표시
                 addMessage(message, true);
                 messageInput.value = '';
@@ -2534,9 +2549,9 @@
                     const anonProfile = JSON.parse(localStorage.getItem('anonProfile') || 'null');
                     const nickname = anonProfile ? anonProfile.nickname : '익명';
                     
-                    console.log(`[전송] 닉네임: ${nickname}, 채팅방 ID: ${currentRoom}`);
+                    console.log(`[전송] 닉네임: ${nickname}, 채팅방 ID: ${roomId}`);
                     
-                    const response = await fetch(`/api/chat/messages/${encodeURIComponent(currentRoom)}`, {
+                    const response = await fetch(`/api/chat/messages/${encodeURIComponent(roomId)}`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -2575,8 +2590,16 @@
     async function loadRoomMessages(roomName) {
         console.log(`[로드] ${roomName} 방의 메시지 로드 시작`);
         
+        // 방 정보 가져오기
+        const roomData = chatData.roomList.find(room => room.name === roomName);
+        
+        // 1:1 채팅방인 경우 roomId 사용, 그 외에는 roomName 사용
+        const roomId = (roomData && roomData.type === 'dm' && roomData.roomId) ? roomData.roomId : roomName;
+        
+        console.log(`[로드] 실제 채팅방 ID: ${roomId} (타입: ${roomData?.type || 'unknown'})`);
+        
         try {
-            const response = await fetch(`/api/chat/messages/${encodeURIComponent(roomName)}`);
+            const response = await fetch(`/api/chat/messages/${encodeURIComponent(roomId)}`);
             const result = await response.json();
             
             console.log(`[로드] 서버 응답:`, result);
@@ -2625,7 +2648,13 @@
         messagePollingInterval = setInterval(async () => {
             if (currentRoom) {
                 try {
-                    const response = await fetch(`/api/chat/messages/${encodeURIComponent(currentRoom)}`);
+                    // 방 정보 가져오기
+                    const roomData = chatData.roomList.find(room => room.name === currentRoom);
+                    
+                    // 1:1 채팅방인 경우 roomId 사용, 그 외에는 roomName 사용
+                    const roomId = (roomData && roomData.type === 'dm' && roomData.roomId) ? roomData.roomId : currentRoom;
+                    
+                    const response = await fetch(`/api/chat/messages/${encodeURIComponent(roomId)}`);
                     const result = await response.json();
                     
                     if (result.success && result.messages) {
