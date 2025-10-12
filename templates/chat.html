@@ -2599,9 +2599,8 @@
                 
                 // 메시지 표시
                 result.messages.forEach(msg => {
-                    const isMyMessage = msg.sender === myNickname;
-                    console.log(`[로드] 메시지: ${msg.sender} - ${msg.content.substring(0, 20)}... (내 메시지: ${isMyMessage})`);
-                    addMessage(msg.content, isMyMessage, msg.sender);
+                    console.log(`[로드] 메시지: ${msg.sender} - ${msg.content.substring(0, 20)}... (타입: ${msg.type || 'text'})`);
+                    addMessageFromServer(msg);
                     displayedMessageIds[roomName].add(msg.id);
                 });
                 
@@ -2645,9 +2644,8 @@
                             console.log(`[폴링] ${currentRoom} 방에서 ${newMessages.length}개의 새 메시지 발견`);
                             
                             newMessages.forEach(msg => {
-                                const isMyMessage = msg.sender === myNickname;
-                                console.log(`[폴링] 메시지 표시: ${msg.sender} - ${msg.content.substring(0, 20)}... (내 메시지: ${isMyMessage})`);
-                                addMessage(msg.content, isMyMessage, msg.sender);
+                                console.log(`[폴링] 메시지 표시: ${msg.sender} - ${msg.content.substring(0, 20)}... (타입: ${msg.type || 'text'})`);
+                                addMessageFromServer(msg);
                                 displayedMessageIds[currentRoom].add(msg.id);
                             });
                         }
@@ -2688,7 +2686,95 @@
       });
         }
 
-        // 메시지 추가
+        // 서버에서 받은 메시지 추가 (시스템 메시지 포함)
+        function addMessageFromServer(msg) {
+            if (!currentRoom) return;
+            
+            const messages = document.getElementById('messages');
+            const anonProfile = JSON.parse(localStorage.getItem('anonProfile') || 'null');
+            const myNickname = anonProfile ? anonProfile.nickname : '익명';
+            
+            // 시간 문자열 생성
+            let timeString = '';
+            if (msg.timestamp) {
+                const date = new Date(msg.timestamp * 1000);
+                timeString = date.toLocaleTimeString('ko-KR', { 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    hour12: false 
+                });
+            }
+            
+            const messageWrapper = document.createElement('div');
+            
+            // 시스템 메시지 처리
+            if (msg.type === 'wait' || msg.type === 'enter' || msg.type === 'leave') {
+                messageWrapper.className = 'msg-wrapper system';
+                messageWrapper.style.justifyContent = 'center';
+                messageWrapper.style.margin = '8px 0';
+                
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'msg system';
+                
+                // 메시지 타입에 따른 스타일 설정
+                if (msg.type === 'enter') {
+                    messageDiv.style.background = 'linear-gradient(135deg, #dcfce7, #bbf7d0)';
+                    messageDiv.style.color = '#166534';
+                    messageDiv.style.border = '1px solid #86efac';
+                } else if (msg.type === 'wait') {
+                    messageDiv.style.background = 'linear-gradient(135deg, #fef3c7, #fde68a)';
+                    messageDiv.style.color = '#92400e';
+                    messageDiv.style.border = '1px solid #fbbf24';
+                } else {
+                    // leave
+                    messageDiv.style.background = 'linear-gradient(135deg, #f3f4f6, #e5e7eb)';
+                    messageDiv.style.color = '#6b7280';
+                    messageDiv.style.border = '1px solid #d1d5db';
+                }
+                
+                messageDiv.style.fontSize = '12px';
+                messageDiv.style.fontStyle = 'italic';
+                messageDiv.style.maxWidth = 'auto';
+                messageDiv.style.padding = '6px 12px';
+                messageDiv.style.borderRadius = '12px';
+                
+                messageDiv.innerHTML = `
+                    <div class="msg-content">${msg.content}</div>
+                    <div class="msg-time" style="font-size: 10px; margin-top: 2px; opacity: 0.7;">${timeString}</div>
+                `;
+                
+                messageWrapper.appendChild(messageDiv);
+            } else {
+                // 일반 메시지
+                const isMyMessage = msg.sender === myNickname;
+                messageWrapper.className = `msg-wrapper ${isMyMessage ? 'me' : ''}`;
+                
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `msg ${isMyMessage ? 'me' : ''}`;
+                
+                if (isMyMessage) {
+                    // 내 메시지
+                    messageDiv.innerHTML = `
+                        <div class="msg-content">${msg.content}</div>
+                        <div class="msg-time">${timeString}</div>
+                    `;
+                } else {
+                    // 상대방 메시지
+                    messageDiv.innerHTML = `
+                        <div class="msg-nickname">${msg.sender}</div>
+                        <div class="msg-content">${msg.content}</div>
+                        <div class="msg-time">${timeString}</div>
+                    `;
+                }
+                
+                messageWrapper.appendChild(messageDiv);
+            }
+            
+            messages.appendChild(messageWrapper);
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        // 메시지 추가 (로컬 전용)
         function addMessage(text, isMe, nickname = null) {
             if (!currentRoom) return;
             
