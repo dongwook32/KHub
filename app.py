@@ -959,5 +959,76 @@ def profile_setup():
     
     return render_template('profile-setup.html')
 
+# ===== 채팅 메시지 API =====
+@app.route('/api/chat/messages/<room_name>', methods=['GET'])
+def get_chat_messages(room_name):
+    """특정 채팅방의 메시지 목록 가져오기"""
+    try:
+        messages = load_chat_messages()
+        room_messages = messages.get(room_name, [])
+        return jsonify({
+            'success': True,
+            'messages': room_messages
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'메시지 로드 실패: {str(e)}',
+            'messages': []
+        }), 500
+
+@app.route('/api/chat/messages/<room_name>', methods=['POST'])
+def post_chat_message(room_name):
+    """채팅방에 메시지 전송"""
+    try:
+        data = request.get_json()
+        message_content = data.get('message', '').strip()
+        sender_nickname = data.get('sender_nickname', '익명')
+        
+        if not message_content:
+            return jsonify({
+                'success': False,
+                'message': '메시지 내용이 비어있습니다.'
+            }), 400
+        
+        # 채팅 메시지 로드
+        messages = load_chat_messages()
+        
+        # 해당 채팅방이 없으면 생성
+        if room_name not in messages:
+            messages[room_name] = []
+        
+        # 새 메시지 생성
+        message_id = f"m{int(time.time() * 1000)}"
+        new_message = {
+            'id': message_id,
+            'sender': sender_nickname,
+            'content': message_content,
+            'timestamp': time.time(),
+            'created_at': datetime.now().isoformat()
+        }
+        
+        # 메시지 추가
+        messages[room_name].append(new_message)
+        
+        # 저장
+        if save_chat_messages(messages):
+            return jsonify({
+                'success': True,
+                'message': '메시지가 전송되었습니다.',
+                'message_data': new_message
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': '메시지 저장 실패'
+            }), 500
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'메시지 전송 실패: {str(e)}'
+        }), 500
+
 if __name__ == '__main__':
     app.run(debug=True)
