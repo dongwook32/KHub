@@ -121,6 +121,97 @@ def save_chat_messages(messages):
     except:
         return False
 
+def load_matching_queue():
+    """매칭 대기열 로드"""
+    try:
+        with open('matching_queue.json', 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {'waiting': [], 'matched': []}
+    except Exception as e:
+        print(f"매칭 대기열 로드 실패: {e}")
+        return {'waiting': [], 'matched': []}
+
+def save_matching_queue(data):
+    """매칭 대기열 저장"""
+    try:
+        with open('matching_queue.json', 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        return True
+    except Exception as e:
+        print(f"매칭 대기열 저장 실패: {e}")
+        return False
+
+def load_chat_rooms():
+    """채팅방 정보 로드"""
+    try:
+        with open('chat_rooms.json', 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
+    except Exception as e:
+        print(f"채팅방 정보 로드 실패: {e}")
+        return {}
+
+def save_chat_rooms(rooms):
+    """채팅방 정보 저장"""
+    try:
+        with open('chat_rooms.json', 'w', encoding='utf-8') as f:
+            json.dump(rooms, f, ensure_ascii=False, indent=2)
+        return True
+    except Exception as e:
+        print(f"채팅방 정보 저장 실패: {e}")
+        return False
+
+def try_matching(matching_data):
+    """매칭 시도 (이성 매칭)"""
+    waiting_list = matching_data.get('waiting', [])
+    
+    if len(waiting_list) < 2:
+        return None
+    
+    # 이성 매칭 시도
+    for i, user1 in enumerate(waiting_list):
+        for j, user2 in enumerate(waiting_list[i+1:], i+1):
+            if user1.get('gender') != user2.get('gender'):
+                # 매칭 성공
+                room_id = f"dm_{int(time.time() * 1000)}"
+                
+                # 채팅방 생성
+                room_data = {
+                    'room_id': room_id,
+                    'user1_id': user1['student_id'],
+                    'user2_id': user2['student_id'],
+                    'user1_nickname': user1['nickname'],
+                    'user2_nickname': user2['nickname'],
+                    'created_at': time.time(),
+                    'user1_entered': False,
+                    'user2_entered': False,
+                    'user1_entered_at': None,
+                    'user2_entered_at': None
+                }
+                
+                # 방 정보 저장
+                rooms_data = load_chat_rooms()
+                rooms_data[room_id] = room_data
+                save_chat_rooms(rooms_data)
+                
+                # 대기열에서 제거
+                waiting_list.remove(user1)
+                waiting_list.remove(user2)
+                matching_data['waiting'] = waiting_list
+                save_matching_queue(matching_data)
+                
+                print(f"[매칭 성공] {user1['nickname']} ↔ {user2['nickname']} (방 ID: {room_id})")
+                
+                return {
+                    'room_id': room_id,
+                    'user1': user1,
+                    'user2': user2
+                }
+    
+    return None
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -774,6 +865,290 @@ def send_chat_message(room_id):
         return jsonify({'success': False, 'message': '메시지 저장 중 오류가 발생했습니다.'}), 500
     
     return jsonify({'success': True, 'message_data': new_message})
+
+@app.route('/api/chat/leave/<room_id>', methods=['POST'])
+def leave_chat_room(room_id):
+    """채팅방 나가기 (나가기 메시지 전송)"""
+    # 로그인 체크
+    if 'user' not in session or not session.get('user'):
+        return jsonify({'success': False, 'message': '로그인이 필요합니다.'}), 401
+    
+    data = request.get_json()
+    nickname = data.get('nickname', '익명').strip()
+    
+    if not nickname:
+        return jsonify({'success': False, 'message': '닉네임이 필요합니다.'}), 400
+    
+    # 모든 메시지 로드
+    all_messages = load_chat_messages()
+    
+    # 해당 채팅방의 메시지 가져오기
+    if room_id not in all_messages:
+        all_messages[room_id] = []
+    
+    # 나가기 메시지 추가
+    leave_message = {
+        'id': 'leave_' + str(int(time.time() * 1000)),
+        'sender': '시스템',
+        'content': f'{nickname}님이 채팅방을 나갔습니다.',
+        'timestamp': time.time(),
+        'created_at': datetime.now().isoformat(),
+        'type': 'leave'
+    }
+    
+    all_messages[room_id].append(leave_message)
+    
+    print(f"[채팅] {nickname}님이 {room_id} 방을 나감")
+    
+    # 최근 100개 메시지만 유지
+    if len(all_messages[room_id]) > 100:
+        all_messages[room_id] = all_messages[room_id][-100:]
+    
+    # 저장
+    if not save_chat_messages(all_messages):
+        return jsonify({'success': False, 'message': '나가기 메시지 저장 중 오류가 발생했습니다.'}), 500
+    
+    return jsonify({'success': True, 'message_data': leave_message})
+
+@app.route('/api/interest/<interest_name>/leave', methods=['POST'])
+def leave_interest_room(interest_name):
+    """관심분야 방에서 나가기 (참여자 수 감소)"""
+    # 로그인 체크
+    if 'user' not in session or not session.get('user'):
+        return jsonify({'success': False, 'message': '로그인이 필요합니다.'}), 401
+    
+    current_user = session.get('user', {})
+    current_student_id = current_user.get('student_id')
+    
+    # 현재 사용자의 익명 프로필 가져오기
+    user_profile = None
+    all_profiles = load_anon_profiles()
+    for profile in all_profiles:
+        if profile.get('student_id') == current_student_id:
+            user_profile = profile
+            break
+    
+    if not user_profile:
+        return jsonify({'success': False, 'message': '익명 프로필을 찾을 수 없습니다.'}), 404
+    
+    # 관심사에서 해당 관심분야 제거
+    if interest_name in user_profile.get('interests', []):
+        user_profile['interests'].remove(interest_name)
+        
+        # 서버에 저장
+        save_anon_profiles(all_profiles)
+        
+        print(f"[관심분야] {user_profile.get('nickname', '익명')}님이 {interest_name} 방에서 나감")
+        
+        return jsonify({
+            'success': True, 
+            'message': f'{interest_name} 방에서 나갔습니다.',
+            'remaining_interests': user_profile.get('interests', [])
+        })
+    else:
+        return jsonify({'success': False, 'message': '해당 관심분야 방에 참여하지 않았습니다.'}), 400
+
+@app.route('/api/matching/start', methods=['POST'])
+def start_matching():
+    """1:1 매칭 시작"""
+    # 로그인 체크
+    if 'user' not in session or not session.get('user'):
+        return jsonify({'success': False, 'message': '로그인이 필요합니다.'}), 401
+    
+    current_user = session.get('user', {})
+    current_student_id = current_user.get('student_id')
+    
+    # 현재 사용자의 익명 프로필 가져오기
+    user_profile = None
+    all_profiles = load_anon_profiles()
+    for profile in all_profiles:
+        if profile.get('student_id') == current_student_id:
+            user_profile = profile
+            break
+    
+    if not user_profile:
+        return jsonify({'success': False, 'message': '익명 프로필을 찾을 수 없습니다.'}), 404
+    
+    # 매칭 대기열에 추가
+    matching_data = load_matching_queue()
+    
+    # 이미 대기 중인지 확인
+    existing_wait = next((w for w in matching_data.get('waiting', []) if w.get('student_id') == current_student_id), None)
+    if existing_wait:
+        return jsonify({'success': False, 'message': '이미 매칭 대기 중입니다.'}), 400
+    
+    # 대기열에 추가
+    waiting_user = {
+        'student_id': current_student_id,
+        'nickname': user_profile.get('nickname'),
+        'gender': user_profile.get('gender'),
+        'joined_at': time.time()
+    }
+    
+    matching_data['waiting'].append(waiting_user)
+    save_matching_queue(matching_data)
+    
+    print(f"[매칭] {user_profile.get('nickname')}님이 1:1 매칭 대기열에 추가됨")
+    
+    # 매칭 시도
+    match_result = try_matching(matching_data)
+    
+    return jsonify({
+        'success': True,
+        'message': '매칭 대기열에 추가되었습니다.',
+        'matched': match_result is not None,
+        'match_data': match_result
+    })
+
+@app.route('/api/matching/cancel', methods=['POST'])
+def cancel_matching():
+    """1:1 매칭 취소"""
+    # 로그인 체크
+    if 'user' not in session or not session.get('user'):
+        return jsonify({'success': False, 'message': '로그인이 필요합니다.'}), 401
+    
+    current_user = session.get('user', {})
+    current_student_id = current_user.get('student_id')
+    
+    matching_data = load_matching_queue()
+    
+    # 대기열에서 제거
+    matching_data['waiting'] = [w for w in matching_data.get('waiting', []) if w.get('student_id') != current_student_id]
+    save_matching_queue(matching_data)
+    
+    print(f"[매칭] {current_student_id}님이 매칭 대기열에서 제거됨")
+    
+    return jsonify({'success': True, 'message': '매칭이 취소되었습니다.'})
+
+@app.route('/api/room/<room_id>/enter', methods=['POST'])
+def enter_room(room_id):
+    """채팅방 입장"""
+    # 로그인 체크
+    if 'user' not in session or not session.get('user'):
+        return jsonify({'success': False, 'message': '로그인이 필요합니다.'}), 401
+    
+    current_user = session.get('user', {})
+    current_student_id = current_user.get('student_id')
+    
+    # 방 정보 가져오기
+    rooms_data = load_chat_rooms()
+    room = rooms_data.get(room_id)
+    
+    if not room:
+        return jsonify({'success': False, 'message': '채팅방을 찾을 수 없습니다.'}), 404
+    
+    # 사용자가 이 방에 참여할 수 있는지 확인
+    if current_student_id not in [room['user1_id'], room['user2_id']]:
+        return jsonify({'success': False, 'message': '이 방에 참여할 권한이 없습니다.'}), 403
+    
+    # 입장 상태 업데이트
+    if current_student_id == room['user1_id']:
+        room['user1_entered'] = True
+        room['user1_entered_at'] = time.time()
+    else:
+        room['user2_entered'] = True
+        room['user2_entered_at'] = time.time()
+    
+    rooms_data[room_id] = room
+    save_chat_rooms(rooms_data)
+    
+    # 입장 메시지 생성
+    user_profile = None
+    all_profiles = load_anon_profiles()
+    for profile in all_profiles:
+        if profile.get('student_id') == current_student_id:
+            user_profile = profile
+            break
+    
+    nickname = user_profile.get('nickname', '익명') if user_profile else '익명'
+    
+    # 입장 메시지 추가
+    messages = load_chat_messages()
+    if room_id not in messages:
+        messages[room_id] = []
+    
+    # 상대방이 이미 입장했는지 확인
+    other_user_entered = False
+    if current_student_id == room['user1_id']:
+        other_user_entered = room.get('user2_entered', False)
+    else:
+        other_user_entered = room.get('user1_entered', False)
+    
+    if other_user_entered:
+        # 양쪽 모두에게 상대방 입장 메시지 전송
+        enter_message = {
+            'id': f"enter_{int(time.time() * 1000)}",
+            'sender': '시스템',
+            'content': f'{nickname}님이 방에 입장했습니다.',
+            'timestamp': time.time(),
+            'created_at': datetime.now().isoformat(),
+            'type': 'enter'
+        }
+        messages[room_id].append(enter_message)
+        print(f"[입장] {nickname}님이 {room_id} 방에 입장 (상대방 이미 입장함)")
+    else:
+        # 첫 번째 입장자에게만 메시지
+        enter_message = {
+            'id': f"wait_{int(time.time() * 1000)}",
+            'sender': '시스템',
+            'content': '상대방이 아직 방에 입장하지 않았습니다.',
+            'timestamp': time.time(),
+            'created_at': datetime.now().isoformat(),
+            'type': 'wait'
+        }
+        messages[room_id].append(enter_message)
+        print(f"[입장] {nickname}님이 {room_id} 방에 입장 (첫 번째 입장자)")
+    
+    # 메시지 저장
+    save_chat_messages(messages)
+    
+    return jsonify({
+        'success': True,
+        'message': '방에 입장했습니다.',
+        'room_data': room,
+        'other_user_entered': other_user_entered
+    })
+
+@app.route('/api/rooms', methods=['GET'])
+def get_user_rooms():
+    """사용자의 채팅방 목록 조회"""
+    # 로그인 체크
+    if 'user' not in session or not session.get('user'):
+        return jsonify({'success': False, 'message': '로그인이 필요합니다.'}), 401
+    
+    current_user = session.get('user', {})
+    current_student_id = current_user.get('student_id')
+    
+    # 모든 방 정보 가져오기
+    rooms_data = load_chat_rooms()
+    
+    # 사용자가 참여한 방들 필터링
+    user_rooms = []
+    for room_id, room in rooms_data.items():
+        if current_student_id in [room.get('user1_id'), room.get('user2_id')]:
+            # 상대방 정보 가져오기
+            other_student_id = room['user2_id'] if current_student_id == room['user1_id'] else room['user1_id']
+            other_profile = None
+            
+            all_profiles = load_anon_profiles()
+            for profile in all_profiles:
+                if profile.get('student_id') == other_student_id:
+                    other_profile = profile
+                    break
+            
+            user_rooms.append({
+                'room_id': room_id,
+                'room_name': other_profile.get('nickname', '익명') if other_profile else '익명',
+                'type': 'dm',
+                'created_at': room.get('created_at'),
+                'user1_entered': room.get('user1_entered', False),
+                'user2_entered': room.get('user2_entered', False)
+            })
+    
+    return jsonify({
+        'success': True,
+        'rooms': user_rooms
+    })
 
 @app.route('/api/check-nickname', methods=['POST'])
 def check_nickname():
