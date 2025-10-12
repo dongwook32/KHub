@@ -1120,13 +1120,16 @@ def enter_room(room_id):
         last_message = messages[room_id][-1] if messages[room_id] else None
         should_add_message = True
         
-        if last_message and last_message.get('type') in ['wait', 'enter']:
-            # 이미 시스템 메시지가 있으면 중복 추가하지 않음
+        # 두 번째 사용자 입장 시에는 wait 메시지를 enter로 교체해야 하므로 항상 처리
+        if other_user_entered:
+            should_add_message = True
+        elif last_message and last_message.get('type') in ['wait', 'enter']:
+            # 첫 번째 사용자 입장 시에만 중복 방지
             should_add_message = False
         
         if should_add_message:
             if other_user_entered:
-                # 양쪽 모두에게 상대방 입장 메시지 전송
+                # 두 번째 사용자 입장 시: 기존 wait 메시지를 enter 메시지로 교체
                 enter_message = {
                     'id': f"enter_{int(time.time() * 1000)}",
                     'sender': '시스템',
@@ -1135,8 +1138,16 @@ def enter_room(room_id):
                     'created_at': datetime.now().isoformat(),
                     'type': 'enter'
                 }
-                messages[room_id].append(enter_message)
-                print(f"[입장] {nickname}님이 {room_id} 방에 입장 (상대방 이미 입장함)")
+                
+                # 기존 wait 메시지가 있으면 교체, 없으면 추가
+                if last_message and last_message.get('type') == 'wait':
+                    # 마지막 메시지가 wait 타입이면 교체
+                    messages[room_id][-1] = enter_message
+                    print(f"[입장] {nickname}님이 {room_id} 방에 입장 (wait 메시지를 enter로 교체)")
+                else:
+                    # wait 메시지가 없으면 새로 추가
+                    messages[room_id].append(enter_message)
+                    print(f"[입장] {nickname}님이 {room_id} 방에 입장 (상대방 이미 입장함)")
             else:
                 # 첫 번째 입장자에게만 메시지
                 wait_message = {

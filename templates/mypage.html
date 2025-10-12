@@ -691,7 +691,10 @@
         
         if (anonProfile) {
           document.getElementById('anonNickname').textContent = anonProfile.nickname || '익명의친구';
-          document.getElementById('anonYear').textContent = anonProfile.year || '-';
+          // year 필드에서 "학번" 텍스트 제거 (이미 HTML에서 "학번" 레이블이 있음)
+          const yearValue = anonProfile.year || '-';
+          const cleanYear = yearValue.replace('학번', '');
+          document.getElementById('anonYear').textContent = cleanYear;
           document.getElementById('anonGender').textContent = anonProfile.gender || '-';
           document.getElementById('anonBio').textContent = anonProfile.bio || '-';
           

@@ -1587,35 +1587,52 @@
       const leftRooms = JSON.parse(localStorage.getItem('leftRooms') || '[]');
       
       interests.forEach(interest => {
-        // 나간 채팅방이면 목록에서 완전히 제외
-        if (leftRooms.includes(interest)) {
-          console.log(`[관심분야 목록] ${interest}는 나간 방이므로 목록에서 제외`);
-          return; // 이 관심사는 건너뛰기
+        // 나간 채팅방인지 확인 (제외하지 않고 표시)
+        const isLeftRoom = leftRooms.includes(interest);
+        if (isLeftRoom) {
+          console.log(`[관심분야 목록] ${interest}는 나간 방이지만 목록에 표시 (재입장 가능)`);
         }
         
         const li = document.createElement('li');
         const emoji = interestEmojis[interest] || '🎯';
         const participantCount = roomParticipants[interest]?.count || 0;
         
+        // 나간 방인 경우 시각적으로 구분
+        if (isLeftRoom) {
+            li.style.opacity = '0.6';
+            li.style.borderLeft = '3px solid #ff6b6b';
+        }
+        
         // 관심분야 항목 HTML 구조 (채팅방 목록과 동일한 스타일)
         li.innerHTML = `
             <div class="room-info">
                 <div class="room-name-wrapper">
                     <span class="room-name">${emoji} ${interest}</span>
+                    ${isLeftRoom ? '<span style="color: #ff6b6b; font-size: 12px; margin-left: 5px;">(나간 방)</span>' : ''}
                 </div>
                 <span class="participant-count">${participantCount}명</span>
             </div>
         `;
         
-        // 정상적인 방만 표시
+        // 클릭 이벤트 처리
         li.addEventListener('click', () => {
-            // 나간 방 목록에서 제거 (재입장 허용)
-            let leftRooms = JSON.parse(localStorage.getItem('leftRooms') || '[]');
-            const roomIndex = leftRooms.indexOf(interest);
-            if (roomIndex > -1) {
-                leftRooms.splice(roomIndex, 1);
-                localStorage.setItem('leftRooms', JSON.stringify(leftRooms));
-                console.log(`[재입장] ${interest} 방을 나간 방 목록에서 제거`);
+            // 나간 방인 경우 leftRooms에서 제거 (재입장 허용)
+            if (isLeftRoom) {
+                let leftRooms = JSON.parse(localStorage.getItem('leftRooms') || '[]');
+                const roomIndex = leftRooms.indexOf(interest);
+                if (roomIndex > -1) {
+                    leftRooms.splice(roomIndex, 1);
+                    localStorage.setItem('leftRooms', JSON.stringify(leftRooms));
+                    console.log(`[재입장] ${interest} 방을 나간 방 목록에서 제거`);
+                    
+                    // UI에서 "(나간 방)" 표시 제거
+                    li.style.opacity = '1';
+                    li.style.borderLeft = 'none';
+                    const leftRoomSpan = li.querySelector('span[style*="color: #ff6b6b"]');
+                    if (leftRoomSpan) {
+                        leftRoomSpan.remove();
+                    }
+                }
             }
             
             // 관심사 방 입장 시 채팅방 목록에 추가
@@ -1636,10 +1653,10 @@
         interestList.appendChild(li);
       });
       
-      // 표시된 관심사 개수 계산 (나간 방 제외)
+      // 표시된 관심사 개수 계산 (모든 관심사 표시)
       const displayedCount = interestList.children.length;
-      const leftCount = leftRooms.length;
-      console.log(`[관심분야 목록] 전체 ${interests.length}개 중 ${leftCount}개 제외, ${displayedCount}개 표시`);
+      const leftCount = leftRooms.filter(room => interests.includes(room)).length;
+      console.log(`[관심분야 목록] 전체 ${interests.length}개 표시 (${leftCount}개는 나간 방, 재입장 가능)`);
     }
 
     // 관심사 방을 채팅방 목록에 추가
