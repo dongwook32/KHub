@@ -2,10 +2,15 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 import json
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 app.secret_key = 'change-me'
+
+# 세션 설정 - 브라우저를 닫아도 로그인 유지
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)  # 30일 동안 로그인 유지
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = False  # HTTPS 사용 시 True로 변경
 
 # 데이터 저장 파일 경로
 DATA_FILE = 'registered_users.json'
@@ -226,6 +231,9 @@ def login_post():
                     
                     department = dept_mapping.get(dept_code, 'free')
                     
+                    # 세션을 영구적으로 설정 (브라우저를 닫아도 유지)
+                    session.permanent = True
+                    
                     # 세션에 사용자 정보 저장
                     session['user'] = {
                         'name': user.get('name'),
@@ -238,6 +246,9 @@ def login_post():
                         'dept_code': dept_code
                     }
                 else:
+                    # 세션을 영구적으로 설정 (브라우저를 닫아도 유지)
+                    session.permanent = True
+                    
                     session['user'] = {
                         'name': user.get('name'),
                         'student_id': student_id,
