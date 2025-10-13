@@ -1488,7 +1488,7 @@
         if (profile) {
           // 마이프로필 카드 업데이트
           document.getElementById('myProfileName').textContent = profile.nickname || '익명의친구';
-          document.getElementById('myProfileDetails').textContent = `${profile.year}학번 · ${profile.gender}`;
+          document.getElementById('myProfileDetails').textContent = `${profile.year} · ${profile.gender}`;
           document.getElementById('myProfileBio').textContent = profile.bio || '새로운 친구를 만나고 싶어요!';
           
           // 관심사 목록 업데이트
@@ -2370,13 +2370,17 @@
                 startMessagePolling();
                 console.log(`[입장] ${roomName} 방 입장 완료, 폴링 시작됨`);
             } else {
-                // 관심분야 방: 로컬에서 메시지 로드
-                loadRoomMessages(roomName);
+                // 관심분야 방: 서버에서 메시지 로드
+                await loadRoomMessages(roomName);
                 
                 // 참여자 수 증가
                 if (roomData && roomData.type === 'interest') {
                     incrementParticipantCount(roomName);
                 }
+                
+                // 메시지 폴링 시작 (관심분야 방도 실시간 메시지 수신)
+                startMessagePolling();
+                console.log(`[입장] ${roomName} 방 입장 완료, 폴링 시작됨`);
             }
             
             // 참여자 수 표시 (그룹 채팅방인 경우에만)
