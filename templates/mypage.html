@@ -1488,48 +1488,36 @@
         if (result.success) {
           // localStorage의 모든 데이터 삭제
           const currentUser = localStorage.getItem('currentUser');
-          
-          // 먼저 모든 키를 수집 (삭제 중 인덱스 변경 방지)
-          const allKeys = [];
-          for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key) {
-              allKeys.push(key);
-            }
+          if (currentUser) {
+            // 사용자별 데이터 삭제
+            localStorage.removeItem(`activity_${currentUser}`);
+            localStorage.removeItem('anonProfile');
+            localStorage.removeItem('userProfile');
+            localStorage.removeItem('currentUser');
+            localStorage.removeItem('isLoggedIn');
           }
           
-          // 사용자 관련 모든 키 삭제
-          const keysToRemove = allKeys.filter(key => 
-            key.startsWith('activity_') || 
-            key.includes('user') || 
-            key.includes('User') ||
-            key.includes('profile') || 
-            key.includes('Profile') ||
-            key.includes('chat') || 
-            key.includes('Chat') ||
-            key.includes('room') || 
-            key.includes('Room') ||
-            key.includes('board') ||
-            key.includes('Board') ||
-            key === 'currentUser' ||
-            key === 'isLoggedIn' ||
-            key === 'anonProfile' ||
-            key === 'userProfile' ||
-            key === 'chatData' ||
-            key === 'leftRooms' ||
-            key === 'randomProfiles' ||
-            key === 'groupMatchingQueue' ||
-            key === 'boardPosts' ||
-            key === 'boardComments'
-          );
+          // 채팅 관련 데이터 삭제
+          localStorage.removeItem('chatData');
+          localStorage.removeItem('leftRooms');
+          localStorage.removeItem('randomProfiles');
+          localStorage.removeItem('groupMatchingQueue');
           
-          // 수집된 키들을 한 번에 삭제
-          keysToRemove.forEach(key => {
-            localStorage.removeItem(key);
-            console.log(`[회원 탈퇴] 삭제: ${key}`);
-          });
+          // 게시판 관련 데이터 삭제
+          localStorage.removeItem('boardPosts');
+          localStorage.removeItem('boardComments');
           
-          console.log(`[회원 탈퇴] 총 ${keysToRemove.length}개 항목 삭제 완료`);
+          // 기타 관련 데이터 삭제
+          const keysToRemove = [];
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && (key.startsWith('activity_') || key.includes('user') || key.includes('profile') || key.includes('chat') || key.includes('room'))) {
+              keysToRemove.push(key);
+            }
+          }
+          keysToRemove.forEach(key => localStorage.removeItem(key));
+          
+          console.log('[회원 탈퇴] 모든 사용자 데이터 삭제 완료');
           
           // 모달 닫기
           closeModal('deleteModal');

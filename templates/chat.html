@@ -3581,31 +3581,17 @@
       const serverProfile = {{ anon_profile|tojson|safe }};
       if (serverProfile && Object.keys(serverProfile).length > 0) {
         localStorage.setItem('anonProfile', JSON.stringify(serverProfile));
-        console.log('✅ 서버 프로필을 localStorage에 저장:', serverProfile);
+        console.log('서버 프로필을 localStorage에 저장:', serverProfile);
       } else {
-        console.log('⚠️ 서버 프로필이 비어있음 (localStorage 유지)');
+        // 서버에 프로필이 없으면 localStorage의 이전 프로필 삭제
+        localStorage.removeItem('anonProfile');
+        console.log('서버에 익명 프로필이 없어 localStorage에서 삭제');
       }
       {% else %}
-      console.log('⚠️ 서버에서 프로필을 받지 못함 (localStorage 유지)');
+      // 서버에 프로필이 없으면 localStorage의 이전 프로필 삭제
+      localStorage.removeItem('anonProfile');
+      console.log('서버에 익명 프로필이 없어 localStorage에서 삭제');
       {% endif %}
-      
-      // localStorage에 프로필이 없으면 서버에서 다시 가져오기
-      const localProfile = localStorage.getItem('anonProfile');
-      if (!localProfile) {
-        console.log('📡 localStorage에 프로필 없음, 서버에서 가져오기 시도');
-        fetch('/api/anon-profile')
-          .then(res => res.json())
-          .then(result => {
-            if (result.success && result.profile) {
-              localStorage.setItem('anonProfile', JSON.stringify(result.profile));
-              console.log('✅ 서버 API에서 프로필 로드 성공:', result.profile);
-              loadAnonProfile();
-            } else {
-              console.log('❌ 서버에 저장된 프로필 없음');
-            }
-          })
-          .catch(err => console.error('프로필 로드 실패:', err));
-      }
       
       loadAnonProfile();
       
