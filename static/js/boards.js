@@ -620,6 +620,154 @@ function viewPost(postId) {
   renderPostDetail(post, postComments);
 }
 
+// ===== 게시글 수정 =====
+function editPost(postId) {
+  const post = posts.find(p => p.id === postId);
+  if (!post) {
+    alert('게시글을 찾을 수 없습니다.');
+    return;
+  }
+  
+  // 수정 모달 열기
+  document.getElementById('editModal').style.display = 'flex';
+  
+  // 폼에 기존 데이터 채우기
+  document.getElementById('editPostId').value = post.id;
+  document.getElementById('editPostTitle').value = post.title;
+  document.getElementById('editPostContent').value = post.content;
+  document.getElementById('editPostType').value = post.type || 'question';
+  
+  // 기존 태그 표시
+  const editTagsContainer = document.getElementById('editTagsContainer');
+  editTagsContainer.innerHTML = '';
+  
+  if (post.tags && post.tags.length > 0) {
+    post.tags.forEach(tag => {
+      const tagItem = document.createElement('div');
+      tagItem.className = 'tag-item';
+      tagItem.setAttribute('data-tag', tag);
+      tagItem.innerHTML = `
+        #${tag}
+        <span class="tag-remove" onclick="removeEditTag('${tag}')">&times;</span>
+      `;
+      editTagsContainer.appendChild(tagItem);
+    });
+  }
+  
+  // 수정 모달의 태그 입력 이벤트 리스너 설정
+  setupEditTagInput();
+}
+
+// 수정 모달 태그 입력 설정
+function setupEditTagInput() {
+  const editTagInput = document.getElementById('editTagInput');
+  
+  // 기존 리스너 제거를 위해 복제
+  const newEditTagInput = editTagInput.cloneNode(true);
+  editTagInput.parentNode.replaceChild(newEditTagInput, editTagInput);
+  
+  newEditTagInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const tagValue = this.value.trim().replace(/^#/, '');
+      
+      if (tagValue) {
+        const editTagsContainer = document.getElementById('editTagsContainer');
+        const existingTags = Array.from(editTagsContainer.querySelectorAll('.tag-item')).map(item => 
+          item.getAttribute('data-tag')
+        );
+        
+        if (!existingTags.includes(tagValue)) {
+          const tagItem = document.createElement('div');
+          tagItem.className = 'tag-item';
+          tagItem.setAttribute('data-tag', tagValue);
+          tagItem.innerHTML = `
+            #${tagValue}
+            <span class="tag-remove" onclick="removeEditTag('${tagValue}')">&times;</span>
+          `;
+          editTagsContainer.appendChild(tagItem);
+        }
+        
+        this.value = '';
+      }
+    }
+  });
+}
+
+// 수정 모달 태그 제거
+function removeEditTag(tag) {
+  const tagElement = document.querySelector(`#editTagsContainer .tag-item[data-tag="${tag}"]`);
+  if (tagElement) {
+    tagElement.remove();
+  }
+}
+
+// 수정 모달 숨기기
+function hideEditModal() {
+  document.getElementById('editModal').style.display = 'none';
+  document.getElementById('editForm').reset();
+  document.getElementById('editTagsContainer').innerHTML = '';
+}
+
+// 게시글 수정 제출
+async function submitEditPost(event) {
+  event.preventDefault();
+  
+  const postId = document.getElementById('editPostId').value;
+  const title = document.getElementById('editPostTitle').value.trim();
+  const content = document.getElementById('editPostContent').value.trim();
+  const type = document.getElementById('editPostType').value;
+  
+  if (!title || !content) {
+    alert('제목과 내용을 모두 입력해주세요.');
+    return;
+  }
+  
+  const tags = Array.from(document.querySelectorAll('#editTagsContainer .tag-item')).map(item => 
+    item.getAttribute('data-tag')
+  );
+  
+  const updatedPost = {
+    title: title,
+    content: content,
+    type: type,
+    tags: tags
+  };
+  
+  try {
+    const response = await fetch(`/api/board-posts/${postId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(updatedPost)
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      // 서버에서 게시글 다시 로드
+      posts = await loadPostsFromServer();
+      
+      // 수정된 게시글 찾기
+      const post = posts.find(p => p.id === postId);
+      if (post) {
+        // 상세 화면 다시 렌더링
+        const postComments = comments.filter(c => c.postId === postId);
+        renderPostDetail(post, postComments);
+      }
+      
+      hideEditModal();
+      alert('게시글이 수정되었습니다!');
+    } else {
+      alert(result.message || '게시글 수정 중 오류가 발생했습니다.');
+    }
+  } catch (error) {
+    console.error('게시글 수정 오류:', error);
+    alert('게시글 수정 중 오류가 발생했습니다. 다시 시도해주세요.');
+  }
+}
+
 // ===== 게시글 삭제 =====
 async function deletePost(postId) {
   if (!confirm('정말 이 게시글을 삭제하시겠습니까?')) {
@@ -766,14 +914,22 @@ function renderPostDetail(post, postComments) {
       </div>
       
       <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;">
-        <h1 class="detail-title" style="flex: 1; margin: 0;">${post.title}</h1>
+        <h1 class="detail-title" style="flex: 1; margin: 0;">        ${post.title}</h1>
         ${isAuthor ? `
-        <button onclick="deletePost('${post.id}')" style="padding: 8px 16px; background: #ef4444; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; white-space: nowrap; transition: all 0.3s ease;" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">
-          <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display: inline-block; vertical-align: middle; margin-right: 4px;">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-          </svg>
-          삭제
-        </button>
+        <div style="display: flex; gap: 8px;">
+          <button onclick="editPost('${post.id}')" style="padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; white-space: nowrap; transition: all 0.3s ease;" onmouseover="this.style.background='#2563eb'" onmouseout="this.style.background='#3b82f6'">
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display: inline-block; vertical-align: middle; margin-right: 4px;">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+            </svg>
+            수정
+          </button>
+          <button onclick="deletePost('${post.id}')" style="padding: 8px 16px; background: #ef4444; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; white-space: nowrap; transition: all 0.3s ease;" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display: inline-block; vertical-align: middle; margin-right: 4px;">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+            </svg>
+            삭제
+          </button>
+        </div>
         ` : ''}
       </div>
       
@@ -1151,14 +1307,13 @@ async function submitPost(event) {
   
   const postId = 'p' + Date.now();
   
-  // 게시글 작성자는 자동으로 익명1로 설정
-  const anonymousId = currentUserStudentId ? getAnonymousIdForPost(postId, currentUserStudentId) : 1;
+  // 게시글은 익명 번호 없이 "익명"만 표시
   
-  const newPost = {
+const newPost = {
     id: postId,
     title: title,
     content: content, // 내용도 저장
-    author: '익명' + anonymousId,
+    author: '익명',
     authorStudentId: currentUserStudentId, // 작성자 학번 저장
     year: yearDisplay ? parseInt(yearDisplay) : null,
     status: statusDisplay,
