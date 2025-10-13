@@ -759,7 +759,7 @@ def delete_board_comment(comment_id):
     return jsonify({'success': True, 'message': '댓글이 삭제되었습니다.'})
 
 @app.route('/api/board-posts/<post_id>', methods=['PUT'])
-def update_board_post(post_id):
+def update_board_post_data(post_id):
     """게시글 정보 업데이트 (좋아요, 댓글 수 등)"""
     # 로그인 체크
     if 'user' not in session or not session.get('user'):
