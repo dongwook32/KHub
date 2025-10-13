@@ -9,6 +9,8 @@
   <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
    <link rel="stylesheet" href="{{ url_for("static", filename="css/nav.css") }}">
+  <link rel="stylesheet" href="{{ url_for("static", filename="css/boards.css") }}">
+  <link rel="stylesheet" href="{{ url_for("static", filename="css/mypage.css") }}">
   <script>
     tailwind.config = {
       darkMode: 'class',
@@ -1491,29 +1493,34 @@
         // 서버에서 최신 익명 프로필 가져오기
         const response = await fetch('/api/anon-profile');
         const result = await response.json();
-
+        
         let profile = null;
-
+        
         if (result.success && result.profile) {
           // 서버에서 받은 프로필을 localStorage에 저장
           localStorage.setItem('anonProfile', JSON.stringify(result.profile));
           profile = result.profile;
           console.log('[익명카드 로드] 서버에서 최신 프로필 가져옴:', profile);
         } else {
-          // 서버에 없으면 localStorage에서 가져오기
-          profile = JSON.parse(localStorage.getItem('anonProfile') || 'null');
-          console.log('[익명카드 로드] localStorage에서 프로필 가져옴:', profile);
+          // 서버에 익명 프로필이 없으면 profile_setup으로 리다이렉션되므로, 여기에 도달하면 예상치 못한 상황.
+          // localStorage에서도 가져올 필요 없음.
+          console.warn('[익명카드 로드] 서버에서 프로필을 가져오지 못했거나 프로필이 비어있습니다. (이 경우 profile_setup으로 리다이렉션되어야 함)');
         }
-
+        
         if (profile) {
           // 마이프로필 카드 업데이트
           const myProfileAvatar = document.getElementById('myProfileAvatar');
           if (myProfileAvatar) {
             myProfileAvatar.textContent = profile.avatar || profile.nickname[0] || '익';
           }
-          document.getElementById('myProfileName').textContent = profile.nickname || '익명의친구';
-          document.getElementById('myProfileDetails').textContent = `${profile.year} · ${profile.gender}`;
-          document.getElementById('myProfileBio').textContent = profile.bio || '새로운 친구를 만나고 싶어요!';
+          document.getElementById('myProfileName').textContent = profile.nickname || '';
+          
+          const yearText = profile.year ? `${profile.year}` : '';
+          const genderText = profile.gender ? `${profile.gender}` : '';
+          const detailsText = [yearText, genderText].filter(Boolean).join(' · ');
+          document.getElementById('myProfileDetails').textContent = detailsText || '';
+          
+          document.getElementById('myProfileBio').textContent = profile.bio || '';
 
           // 관심사 목록 업데이트
           updateInterestList(profile.interests || []);
@@ -1521,25 +1528,11 @@
           // 매칭 버튼 활성화
           document.getElementById('startRandom').textContent = '1:1 매칭 시작';
           document.getElementById('startGroup').textContent = '그룹 매칭 시작';
-        } else { 
-          // 기본값 설정
-          document.getElementById('myProfileName').textContent = '익명 프로필';
-          document.getElementById('myProfileDetails').textContent = '프로필 미설정';
-          document.getElementById('myProfileBio').textContent = '익명카드를 설정해주세요.';
-
-          // 관심사 목록 업데이트
-          updateInterestList([]);
-
-          // 매칭 버튼 활성화
-          document.getElementById('startRandom').textContent = '1:1 매칭 시작';
-          document.getElementById('startGroup').textContent = '그룹 매칭 시작';
         }
+        // profile이 없는 경우 (else 블록)는 app.py에서 profile_setup으로 리다이렉션되므로 여기서는 처리할 필요 없음.
       } catch (e) {
         console.error('프로필 로드 실패:', e);
-        // 기본값 설정
-        document.getElementById('myProfileName').textContent = '익명 프로필';
-        document.getElementById('myProfileDetails').textContent = '프로필 미설정';
-        document.getElementById('myProfileBio').textContent = '익명카드를 설정해주세요.';
+        // 오류 발생 시에도 UI는 변경하지 않음. app.py에서 이미 리다이렉션 처리됨.
       }
     }
 
