@@ -9,8 +9,6 @@
   <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
    <link rel="stylesheet" href="{{ url_for("static", filename="css/nav.css") }}">
-  <link rel="stylesheet" href="{{ url_for("static", filename="css/boards.css") }}">
-  <link rel="stylesheet" href="{{ url_for("static", filename="css/mypage.css") }}">
   <script>
     tailwind.config = {
       darkMode: 'class',
@@ -1297,23 +1295,19 @@
           <h2 class="sidebar-card-title">마이프로필</h2>
                                 </div>
         <div class="sidebar-card-body">
-          <div class="profile-card">
-            <div class="profile-avatar" id="myProfileAvatar"></div>
-            <div class="profile-info">
-              <div class="profile-name" id="myProfileName"></div>
-              <div class="profile-details" id="myProfileDetails"></div>
-              <div class="profile-bio" id="myProfileBio"></div>
-            </div>
-            <button class="btn btn-sm btn-outline" onclick="location.href='/mypage'">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1">
-                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-              </svg>
-              수정
-            </button>
-          </div>
-        </div>
+          <div class="my-profile-content">
+            <div class="my-profile-avatar" id="myProfileAvatar">👤</div>
+            <div class="my-profile-info">
+              <div class="my-profile-name" id="myProfileName">익명 프로필</div>
+              <div class="my-profile-details" id="myProfileDetails">프로필 미설정</div>
+              <div class="my-profile-bio" id="myProfileBio"></div>
+                            </div>
+            <div class="my-profile-actions">
+              <button class="my-profile-edit-btn" onclick="window.location.href='{{ url_for('profile_setup') }}'">수정</button>
                         </div>
+          </div>
+                                </div>
+                            </div>
                         </div>
 
     <!-- 오른쪽 메인 영역 -->
@@ -1493,34 +1487,25 @@
         // 서버에서 최신 익명 프로필 가져오기
         const response = await fetch('/api/anon-profile');
         const result = await response.json();
-        
+
         let profile = null;
-        
+
         if (result.success && result.profile) {
           // 서버에서 받은 프로필을 localStorage에 저장
           localStorage.setItem('anonProfile', JSON.stringify(result.profile));
           profile = result.profile;
           console.log('[익명카드 로드] 서버에서 최신 프로필 가져옴:', profile);
         } else {
-          // 서버에 익명 프로필이 없으면 profile_setup으로 리다이렉션되므로, 여기에 도달하면 예상치 못한 상황.
-          // localStorage에서도 가져올 필요 없음.
-          console.warn('[익명카드 로드] 서버에서 프로필을 가져오지 못했거나 프로필이 비어있습니다. (이 경우 profile_setup으로 리다이렉션되어야 함)');
+          // 서버에 없으면 localStorage에서 가져오기
+          profile = JSON.parse(localStorage.getItem('anonProfile') || 'null');
+          console.log('[익명카드 로드] localStorage에서 프로필 가져옴:', profile);
         }
-        
+
         if (profile) {
           // 마이프로필 카드 업데이트
-          const myProfileAvatar = document.getElementById('myProfileAvatar');
-          if (myProfileAvatar) {
-            myProfileAvatar.textContent = profile.avatar || profile.nickname[0] || '익';
-          }
-          document.getElementById('myProfileName').textContent = profile.nickname || '';
-          
-          const yearText = profile.year ? `${profile.year}` : '';
-          const genderText = profile.gender ? `${profile.gender}` : '';
-          const detailsText = [yearText, genderText].filter(Boolean).join(' · ');
-          document.getElementById('myProfileDetails').textContent = detailsText || '';
-          
-          document.getElementById('myProfileBio').textContent = profile.bio || '';
+          document.getElementById('myProfileName').textContent = profile.nickname || '익명의친구';
+          document.getElementById('myProfileDetails').textContent = `${profile.year} · ${profile.gender}`;
+          document.getElementById('myProfileBio').textContent = profile.bio || '새로운 친구를 만나고 싶어요!';
 
           // 관심사 목록 업데이트
           updateInterestList(profile.interests || []);
@@ -1528,11 +1513,25 @@
           // 매칭 버튼 활성화
           document.getElementById('startRandom').textContent = '1:1 매칭 시작';
           document.getElementById('startGroup').textContent = '그룹 매칭 시작';
+        } else { 
+          // 기본값 설정
+          document.getElementById('myProfileName').textContent = '익명 프로필';
+          document.getElementById('myProfileDetails').textContent = '프로필 미설정';
+          document.getElementById('myProfileBio').textContent = '익명카드를 설정해주세요.';
+
+          // 관심사 목록 업데이트
+          updateInterestList([]);
+
+          // 매칭 버튼 활성화
+          document.getElementById('startRandom').textContent = '1:1 매칭 시작';
+          document.getElementById('startGroup').textContent = '그룹 매칭 시작';
         }
-        // profile이 없는 경우 (else 블록)는 app.py에서 profile_setup으로 리다이렉션되므로 여기서는 처리할 필요 없음.
       } catch (e) {
         console.error('프로필 로드 실패:', e);
-        // 오류 발생 시에도 UI는 변경하지 않음. app.py에서 이미 리다이렉션 처리됨.
+        // 기본값 설정
+        document.getElementById('myProfileName').textContent = '익명 프로필';
+        document.getElementById('myProfileDetails').textContent = '프로필 미설정';
+        document.getElementById('myProfileBio').textContent = '익명카드를 설정해주세요.';
       }
     }
 
