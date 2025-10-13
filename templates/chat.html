@@ -1295,19 +1295,23 @@
           <h2 class="sidebar-card-title">마이프로필</h2>
                                 </div>
         <div class="sidebar-card-body">
-          <div class="my-profile-content">
-            <div class="my-profile-avatar" id="myProfileAvatar">👤</div>
-            <div class="my-profile-info">
-              <div class="my-profile-name" id="myProfileName">익명 프로필</div>
-              <div class="my-profile-details" id="myProfileDetails">프로필 미설정</div>
-              <div class="my-profile-bio" id="myProfileBio"></div>
-                            </div>
-            <div class="my-profile-actions">
-              <button class="my-profile-edit-btn" onclick="window.location.href='{{ url_for('profile_setup') }}'">수정</button>
-                        </div>
+          <div class="profile-card">
+            <div class="profile-avatar" id="myProfileAvatar"></div>
+            <div class="profile-info">
+              <div class="profile-name" id="myProfileName"></div>
+              <div class="profile-details" id="myProfileDetails"></div>
+              <div class="profile-bio" id="myProfileBio"></div>
+            </div>
+            <button class="btn btn-sm btn-outline" onclick="location.href='/mypage'">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1">
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              </svg>
+              수정
+            </button>
           </div>
-                                </div>
-                            </div>
+        </div>
+                        </div>
                         </div>
 
     <!-- 오른쪽 메인 영역 -->
@@ -1503,6 +1507,10 @@
 
         if (profile) {
           // 마이프로필 카드 업데이트
+          const myProfileAvatar = document.getElementById('myProfileAvatar');
+          if (myProfileAvatar) {
+            myProfileAvatar.textContent = profile.avatar || profile.nickname[0] || '익';
+          }
           document.getElementById('myProfileName').textContent = profile.nickname || '익명의친구';
           document.getElementById('myProfileDetails').textContent = `${profile.year} · ${profile.gender}`;
           document.getElementById('myProfileBio').textContent = profile.bio || '새로운 친구를 만나고 싶어요!';
