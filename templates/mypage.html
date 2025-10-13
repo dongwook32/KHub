@@ -891,19 +891,8 @@
         // 회원가입 정보에서 성별 로드
         loadUserGenderForMypage();
         
-        // 서버에서 최신 익명 프로필 가져오기
-        try {
-          const response = await fetch('/api/anon-profile');
-          const result = await response.json();
-          
-          if (result.success && result.profile) {
-            // 서버에서 받은 프로필을 localStorage에 저장
-            localStorage.setItem('anonProfile', JSON.stringify(result.profile));
-            console.log('[모달 열기] 서버에서 최신 익명 프로필 로드:', result.profile);
-          }
-        } catch (error) {
-          console.error('[모달 열기] 서버에서 프로필 로드 실패:', error);
-        }
+        // loadAnonProfile에서 서버로부터 최신 프로필을 가져오므로 여기서는 다시 가져올 필요 없음
+        await loadAnonProfile(); // UI에 최신 정보 로드
         
         // 최신 익명 프로필 가져오기 (localStorage에서 다시 읽음)
         const anonProfile = JSON.parse(localStorage.getItem('anonProfile') || 'null');
@@ -976,6 +965,9 @@
             }, 500);
           });
         }
+      } else if (modalId === 'activityModal') {
+        // 첫 번째 탭(내 글) 내용 로드
+        loadActivityTabContent('posts');
       }
     }
 
