@@ -659,11 +659,26 @@ def update_board_post(post_id):
         return jsonify({'success': False, 'message': '게시글을 찾을 수 없습니다.'}), 404
     
     # 게시글 업데이트 (기존 데이터 유지하면서 수정된 부분만 업데이트)
-    posts[post_index]['title'] = data.get('title', posts[post_index]['title'])
-    posts[post_index]['content'] = data.get('content', posts[post_index]['content'])
-    posts[post_index]['type'] = data.get('type', posts[post_index]['type'])
-    posts[post_index]['tags'] = data.get('tags', posts[post_index]['tags'])
-    posts[post_index]['updatedAt'] = datetime.now().isoformat()
+    if 'title' in data:
+        posts[post_index]['title'] = data['title']
+    if 'content' in data:
+        posts[post_index]['content'] = data['content']
+    if 'type' in data:
+        posts[post_index]['type'] = data['type']
+    if 'tags' in data:
+        posts[post_index]['tags'] = data['tags']
+    
+    # 좋아요, 댓글 수, 조회수 업데이트 (기존 기능 통합)
+    if 'likes' in data:
+        posts[post_index]['likes'] = data['likes']
+    if 'comments' in data:
+        posts[post_index]['comments'] = data['comments']
+    if 'views' in data:
+        posts[post_index]['views'] = data['views']
+    
+    # 수정 시간 기록 (내용 변경 시에만)
+    if any(key in data for key in ['title', 'content', 'type', 'tags']):
+        posts[post_index]['updatedAt'] = datetime.now().isoformat()
     
     # 저장
     if not save_board_posts(posts):
@@ -758,35 +773,6 @@ def delete_board_comment(comment_id):
     
     return jsonify({'success': True, 'message': '댓글이 삭제되었습니다.'})
 
-@app.route('/api/board-posts/<post_id>', methods=['PUT'])
-def update_board_post(post_id):
-    """게시글 정보 업데이트 (좋아요, 댓글 수 등)"""
-    # 로그인 체크
-    if 'user' not in session or not session.get('user'):
-        return jsonify({'success': False, 'message': '로그인이 필요합니다.'}), 401
-    
-    posts = load_board_posts()
-    
-    # 게시글 찾기
-    post = next((p for p in posts if p.get('id') == post_id), None)
-    
-    if not post:
-        return jsonify({'success': False, 'message': '게시글을 찾을 수 없습니다.'}), 404
-    
-    # 업데이트할 데이터
-    data = request.get_json()
-    if 'likes' in data:
-        post['likes'] = data['likes']
-    if 'comments' in data:
-        post['comments'] = data['comments']
-    if 'views' in data:
-        post['views'] = data['views']
-    
-    # 저장
-    if not save_board_posts(posts):
-        return jsonify({'success': False, 'message': '게시글 업데이트 중 오류가 발생했습니다.'}), 500
-    
-    return jsonify({'success': True, 'post': post})
 
 @app.route('/api/board-posts/<post_id>/like', methods=['POST'])
 def toggle_post_like(post_id):

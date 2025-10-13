@@ -116,6 +116,11 @@
             padding: 12px;
             margin-top: 65px;
         }
+        
+        .messages {
+            height: calc(100vh - 280px);
+            min-height: 400px;
+        }
     }
     
     .panel { 
@@ -486,7 +491,8 @@
     
     /* 채팅 화면 */
         .messages { 
-        height: 400px; 
+        height: calc(100vh - 350px); 
+        min-height: 500px;
         overflow-y: auto; 
             display: flex; 
             flex-direction: column; 
