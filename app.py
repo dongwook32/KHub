@@ -18,6 +18,7 @@ ANON_PROFILES_FILE = 'anon_profiles.json'
 BOARD_POSTS_FILE = 'board_posts.json'
 BOARD_COMMENTS_FILE = 'board_comments.json'
 CHAT_MESSAGES_FILE = 'chat_messages.json'
+USER_READ_STATUS_FILE = 'user_read_status.json'
 GROUP_MATCHING_FILE = 'group_matching.json'
 GROUP_ROOMS_FILE = 'group_rooms.json'
 
@@ -123,6 +124,71 @@ def save_chat_messages(messages):
         return True
     except:
         return False
+
+def load_user_read_status():
+    """사용자별 읽음 상태 불러오기"""
+    if os.path.exists(USER_READ_STATUS_FILE):
+        try:
+            with open(USER_READ_STATUS_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except:
+            return {}
+    return {}
+
+def save_user_read_status(read_status):
+    """사용자별 읽음 상태 저장하기"""
+    try:
+        with open(USER_READ_STATUS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(read_status, f, ensure_ascii=False, indent=2)
+        return True
+    except:
+        return False
+
+def update_user_read_status(student_id, room_id, last_message_id):
+    """사용자의 특정 채팅방 읽음 상태 업데이트"""
+    read_status = load_user_read_status()
+    
+    if student_id not in read_status:
+        read_status[student_id] = {}
+    
+    read_status[student_id][room_id] = last_message_id
+    return save_user_read_status(read_status)
+
+def get_unread_message_count(student_id, room_id):
+    """사용자의 특정 채팅방 읽지 않은 메시지 수 계산"""
+    # 채팅방의 모든 메시지 로드
+    all_messages = load_chat_messages()
+    room_messages = all_messages.get(room_id, [])
+    
+    if not room_messages:
+        return 0
+    
+    # 사용자의 읽음 상태 로드
+    read_status = load_user_read_status()
+    user_read_status = read_status.get(student_id, {})
+    last_read_message_id = user_read_status.get(room_id)
+    
+    if not last_read_message_id:
+        # 읽은 메시지가 없으면 모든 메시지가 읽지 않은 상태
+        return len(room_messages)
+    
+    # 마지막 읽은 메시지 이후의 메시지 수 계산
+    unread_count = 0
+    found_last_read = False
+    
+    for message in room_messages:
+        if message.get('id') == last_read_message_id:
+            found_last_read = True
+            continue
+        
+        if found_last_read:
+            unread_count += 1
+    
+    # 마지막 읽은 메시지를 찾지 못한 경우 모든 메시지가 읽지 않은 상태
+    if not found_last_read:
+        return len(room_messages)
+    
+    return unread_count
 
 def load_matching_queue():
     """매칭 대기열 로드"""
@@ -955,6 +1021,61 @@ def send_chat_message(room_id):
     
     return jsonify({'success': True, 'message_data': new_message})
 
+@app.route('/api/chat/read-status/<room_id>', methods=['POST'])
+def update_read_status(room_id):
+    """채팅방 읽음 상태 업데이트"""
+    # 로그인 체크
+    if 'user' not in session or not session.get('user'):
+        return jsonify({'success': False, 'message': '로그인이 필요합니다.'}), 401
+    
+    current_user = session.get('user', {})
+    current_student_id = current_user.get('student_id')
+    
+    if not current_student_id:
+        return jsonify({'success': False, 'message': '사용자 정보를 찾을 수 없습니다.'}), 400
+    
+    # 해당 채팅방의 최신 메시지 ID 가져오기
+    all_messages = load_chat_messages()
+    room_messages = all_messages.get(room_id, [])
+    
+    if not room_messages:
+        return jsonify({'success': True, 'message': '메시지가 없습니다.'})
+    
+    # 가장 최근 메시지 ID
+    latest_message_id = room_messages[-1].get('id')
+    
+    # 읽음 상태 업데이트
+    if update_user_read_status(current_student_id, room_id, latest_message_id):
+        print(f"[읽음 상태 업데이트] 사용자: {current_student_id}, 방: {room_id}, 메시지: {latest_message_id}")
+        return jsonify({
+            'success': True, 
+            'message': '읽음 상태가 업데이트되었습니다.',
+            'last_read_message_id': latest_message_id
+        })
+    else:
+        return jsonify({'success': False, 'message': '읽음 상태 업데이트에 실패했습니다.'}), 500
+
+@app.route('/api/chat/unread-count/<room_id>', methods=['GET'])
+def get_unread_count(room_id):
+    """채팅방 읽지 않은 메시지 수 조회"""
+    # 로그인 체크
+    if 'user' not in session or not session.get('user'):
+        return jsonify({'success': False, 'message': '로그인이 필요합니다.'}), 401
+    
+    current_user = session.get('user', {})
+    current_student_id = current_user.get('student_id')
+    
+    if not current_student_id:
+        return jsonify({'success': False, 'message': '사용자 정보를 찾을 수 없습니다.'}), 400
+    
+    unread_count = get_unread_message_count(current_student_id, room_id)
+    
+    return jsonify({
+        'success': True,
+        'room_id': room_id,
+        'unread_count': unread_count
+    })
+
 @app.route('/api/chat/leave/<room_id>', methods=['POST'])
 def leave_chat_room(room_id):
     """채팅방 나가기 (나가기 메시지 전송)"""
@@ -1326,13 +1447,17 @@ def get_user_rooms():
                     other_profile = profile
                     break
             
+            # 읽지 않은 메시지 수 계산
+            unread_count = get_unread_message_count(current_student_id, room_id)
+            
             user_rooms.append({
                 'room_id': room_id,
                 'room_name': other_profile.get('nickname', '익명') if other_profile else '익명',
                 'type': 'dm',
                 'created_at': room.get('created_at'),
                 'user1_entered': room.get('user1_entered', False),
-                'user2_entered': room.get('user2_entered', False)
+                'user2_entered': room.get('user2_entered', False),
+                'unread_count': unread_count
             })
     
     return jsonify({
@@ -1755,12 +1880,16 @@ def get_group_rooms():
         if room_data.get('active', True):
             members = room_data.get('members', [])
             if any(member.get('student_id') == current_student_id for member in members):
+                # 읽지 않은 메시지 수 계산
+                unread_count = get_unread_message_count(current_student_id, room_id)
+                
                 user_rooms.append({
                     'room_id': room_id,
                     'room_name': room_data.get('room_name', ''),
                     'type': 'group',
                     'member_count': len(members),
-                    'created_at': room_data.get('created_at', 0)
+                    'created_at': room_data.get('created_at', 0),
+                    'unread_count': unread_count
                 })
     
     return jsonify({

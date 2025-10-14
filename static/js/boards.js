@@ -565,7 +565,7 @@ function displayPosts(postsToShow) {
               ${post.departmentId ? `<span class="badge badge-outline">${departments.find(d => d.id === post.departmentId)?.name || post.departmentId}</span>` : ''}
             </div>
             <div class="post-title" onclick="viewPost('${post.id}')">${post.title}</div>
-            <div class="post-meta">${post.author} · ${getYearDisplay(post.year, post.status)} · ${formatTime(post.createdAt)}</div>
+            <div class="post-meta">${post.author}${post.year ? ` · ${post.year}학번` : ''}${post.status && !post.isAnonymous ? ` · ${post.status}` : ''} · ${formatTime(post.createdAt)}</div>
           </div>
           <div class="post-stats">
             <div class="stat-item">
@@ -922,7 +922,7 @@ function renderPostDetail(post, postComments) {
       </div>
       
       <div class="detail-meta">
-        ${post.author} · ${getYearDisplay(post.year, post.status)} · ${formatTime(post.createdAt)}
+        ${post.author}${post.year ? ` · ${post.year}학번` : ''}${post.status && !post.isAnonymous ? ` · ${post.status}` : ''} · ${formatTime(post.createdAt)}
         ${post.updatedAt ? `<span style="color: #6B7280; font-size: 12px;"> (수정됨)</span>` : ''}
       </div>
       
@@ -963,7 +963,7 @@ function renderPostDetail(post, postComments) {
             return `
             <div class="comment-item" data-comment-id="${comment.id}">
               <div class="comment-meta" style="display: flex; justify-content: space-between; align-items: center;">
-                <span>${comment.author} · ${getYearDisplay(comment.year, comment.status)} · ${formatTime(comment.createdAt)}</span>
+                <span>${comment.author}${comment.year ? ` · ${comment.year}학번` : ''} · ${formatTime(comment.createdAt)}</span>
                 ${isCommentAuthor ? `
                   <button onclick="deleteComment('${comment.id}', '${post.id}')" style="padding: 4px 8px; background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.2s ease;" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">
                     삭제
@@ -1019,14 +1019,13 @@ async function submitDetailComment(event, postId) {
   const userProfile = JSON.parse(localStorage.getItem('userProfile') || 'null');
   const anonProfile = JSON.parse(localStorage.getItem('anonProfile') || 'null');
   
-  // 학번에서 입학년도 추출 (항상 익명 처리)
+  // 학번에서 입학년도 추출 (댓글은 항상 익명 처리)
   let yearDisplay = null;
-  let statusDisplay = null;
+  let statusDisplay = null; // 댓글에서는 상태 표시 안함
   
   if (anonProfile && anonProfile.year) {
     // 익명 프로필에서 학번 정보 가져오기
     yearDisplay = anonProfile.year.replace(/[^0-9]/g, ''); // "22학번" -> "22"
-    statusDisplay = null; // 익명일 때는 상태 표시 안함
   }
   
   // 현재 사용자의 학번
@@ -1199,7 +1198,7 @@ function loadComments(postId) {
   
   commentsList.innerHTML = postComments.map(comment => `
     <div class="comment-item">
-      <div class="comment-meta">${comment.author} · ${getYearDisplay(comment.year)} · ${formatTime(comment.createdAt)}</div>
+      <div class="comment-meta">${comment.author}${comment.year ? ` · ${comment.year}학번` : ''} · ${formatTime(comment.createdAt)}</div>
       <div class="comment-content">${comment.content}</div>
     </div>
   `).join('');
@@ -1254,7 +1253,7 @@ async function submitPost(event) {
   const content = form.postContent.value.trim();
   const type = form.postType.value;
   const department = form.postDepartment.value;
-  const isAnonymous = true; // 항상 익명으로 처리
+  const isAnonymous = false; // 게시글은 실명으로 처리
   
   if (!title || !content) {
     alert('제목과 내용을 모두 입력해주세요.');
@@ -1298,14 +1297,27 @@ async function submitPost(event) {
   
   const postId = 'p' + Date.now();
   
-  // 게시글 작성자는 자동으로 익명1로 설정
-  const anonymousId = currentUserStudentId ? getAnonymousIdForPost(postId, currentUserStudentId) : 1;
+  // 작성자명 설정
+  let authorName;
+  if (isAnonymous) {
+    const anonymousId = currentUserStudentId ? getAnonymousIdForPost(postId, currentUserStudentId) : 1;
+    authorName = '익명' + anonymousId;
+  } else {
+    // 실명으로 표시 (이름 또는 익명 프로필의 닉네임 사용)
+    if (userProfile && userProfile.name) {
+      authorName = userProfile.name;
+    } else if (anonProfile && anonProfile.nickname) {
+      authorName = anonProfile.nickname;
+    } else {
+      authorName = '익명사용자';
+    }
+  }
   
   const newPost = {
     id: postId,
     title: title,
     content: content, // 내용도 저장
-    author: '익명' + anonymousId,
+    author: authorName,
     authorStudentId: currentUserStudentId, // 작성자 학번 저장
     year: yearDisplay ? parseInt(yearDisplay) : null,
     status: statusDisplay,
@@ -1317,7 +1329,8 @@ async function submitPost(event) {
     boardId: currentBoard,
     departmentId: department || null,
     type: type,
-    category: categoryName
+    category: categoryName,
+    isAnonymous: isAnonymous // 익명 여부 저장
   };
   
   try {
