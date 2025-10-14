@@ -160,6 +160,8 @@ def get_unread_message_count(student_id, room_id):
     all_messages = load_chat_messages()
     room_messages = all_messages.get(room_id, [])
     
+    print(f"[읽지 않은 메시지 계산] 방 ID: {room_id}, 총 메시지: {len(room_messages)}개")
+    
     if not room_messages:
         return 0
     
@@ -168,8 +170,11 @@ def get_unread_message_count(student_id, room_id):
     user_read_status = read_status.get(student_id, {})
     last_read_message_id = user_read_status.get(room_id)
     
+    print(f"[읽지 않은 메시지 계산] 사용자: {student_id}, 마지막 읽은 메시지 ID: {last_read_message_id}")
+    
     if not last_read_message_id:
         # 읽은 메시지가 없으면 모든 메시지가 읽지 않은 상태
+        print(f"[읽지 않은 메시지 계산] 읽은 메시지가 없음, 전체 메시지 수 반환: {len(room_messages)}")
         return len(room_messages)
     
     # 마지막 읽은 메시지 이후의 메시지 수 계산
@@ -186,8 +191,10 @@ def get_unread_message_count(student_id, room_id):
     
     # 마지막 읽은 메시지를 찾지 못한 경우 모든 메시지가 읽지 않은 상태
     if not found_last_read:
+        print(f"[읽지 않은 메시지 계산] 마지막 읽은 메시지를 찾지 못함, 전체 메시지 수 반환: {len(room_messages)}")
         return len(room_messages)
     
+    print(f"[읽지 않은 메시지 계산] 읽지 않은 메시지 수: {unread_count}개")
     return unread_count
 
 def load_matching_queue():

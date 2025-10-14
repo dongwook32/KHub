@@ -252,15 +252,17 @@
     }
     
     .unread-badge {
-        background: #dc2626;
-        color: white;
-        font-size: 11px;
-        font-weight: 600;
-        padding: 2px 6px;
-        border-radius: 10px;
-        min-width: 18px;
-        text-align: center;
-        line-height: 1.2;
+        background: #dc2626 !important;
+        color: white !important;
+        font-size: 11px !important;
+        font-weight: 600 !important;
+        padding: 2px 6px !important;
+        border-radius: 10px !important;
+        min-width: 18px !important;
+        text-align: center !important;
+        line-height: 1.2 !important;
+        display: inline-block !important;
+        box-shadow: 0 2px 4px rgba(220, 38, 38, 0.3) !important;
     }
     
     .room-list li.active { 
@@ -1820,9 +1822,11 @@
                 }
                 
                 if (room.type === 'dm') {
+                    console.log(`[UI 업데이트] 1:1 방 ${room.name}: 읽지 않은 메시지 ${room.unreadCount || 0}개`);
                     createRoomListItem('dmList', room.name, room.unreadCount || 0);
                     displayCount++;
                 } else if (room.type === 'group') {
+                    console.log(`[UI 업데이트] 그룹 방 ${room.name}: 읽지 않은 메시지 ${room.unreadCount || 0}개`);
                     createRoomListItem('groupList', room.name, room.unreadCount || 0, room.participantCount || 0);
                     displayCount++;
                 } else if (room.type === 'interest') {
@@ -1863,6 +1867,8 @@
                 const emoji = interestEmojis[roomName] || '🎯';
                 displayName = `${emoji} ${roomName}`;
             }
+            
+            console.log(`[방 목록 아이템 생성] ${roomName}: 읽지 않은 메시지 ${unreadCount}개, 배지 표시: ${unreadCount > 0 ? 'YES' : 'NO'}`);
             
             li.innerHTML = `
                 <div class="room-info">
@@ -3797,6 +3803,8 @@
           for (const serverRoom of serverRooms) {
             const existingRoomIndex = chatData.roomList.findIndex(room => room.name === serverRoom.room_name);
             
+            console.log(`[서버 동기화] 방 ${serverRoom.room_name}: 읽지 않은 메시지 ${serverRoom.unread_count || 0}개`);
+            
             if (existingRoomIndex === -1) {
               // 새로운 방을 로컬에 추가
               const newRoom = {
@@ -3823,7 +3831,7 @@
                 chatData.rooms[serverRoom.room_name] = [];
               }
               
-              console.log(`[서버 동기화] 새로운 방 발견: ${serverRoom.room_name} (${serverRoom.type})`);
+              console.log(`[서버 동기화] 새로운 방 발견: ${serverRoom.room_name} (${serverRoom.type}) - 읽지 않은 메시지: ${serverRoom.unread_count || 0}개`);
             } else {
               // 기존 방의 읽지 않은 메시지 수 업데이트
               chatData.roomList[existingRoomIndex].unreadCount = serverRoom.unread_count || 0;
@@ -3833,7 +3841,7 @@
                 roomParticipants[serverRoom.room_name].unreadCount = serverRoom.unread_count || 0;
               }
               
-              console.log(`[서버 동기화] ${serverRoom.room_name} 읽지 않은 메시지: ${serverRoom.unread_count || 0}개`);
+              console.log(`[서버 동기화] ${serverRoom.room_name} 읽지 않은 메시지: ${serverRoom.unread_count || 0}개 (업데이트됨)`);
             }
           }
           
@@ -3850,6 +3858,8 @@
           
           for (const groupRoom of groupRooms) {
             const existingRoomIndex = chatData.roomList.findIndex(room => room.name === groupRoom.room_name);
+            
+            console.log(`[서버 동기화] 그룹 ${groupRoom.room_name}: 읽지 않은 메시지 ${groupRoom.unread_count || 0}개`);
             
             if (existingRoomIndex === -1) {
               // 새로운 그룹 방을 로컬에 추가
@@ -3876,7 +3886,7 @@
                 chatData.rooms[groupRoom.room_name] = [];
               }
               
-              console.log(`[서버 동기화] 새로운 그룹 방 발견: ${groupRoom.room_name}`);
+              console.log(`[서버 동기화] 새로운 그룹 방 발견: ${groupRoom.room_name} - 읽지 않은 메시지: ${groupRoom.unread_count || 0}개`);
             } else {
               // 기존 그룹 방의 읽지 않은 메시지 수 업데이트
               chatData.roomList[existingRoomIndex].unreadCount = groupRoom.unread_count || 0;
@@ -3888,7 +3898,7 @@
                 roomParticipants[groupRoom.room_name].count = groupRoom.member_count || 0;
               }
               
-              console.log(`[서버 동기화] ${groupRoom.room_name} 그룹 읽지 않은 메시지: ${groupRoom.unread_count || 0}개`);
+              console.log(`[서버 동기화] ${groupRoom.room_name} 그룹 읽지 않은 메시지: ${groupRoom.unread_count || 0}개 (업데이트됨)`);
             }
           }
           
@@ -3913,7 +3923,7 @@
             clearInterval(unreadCountInterval);
         }
         
-        // 10초마다 읽지 않은 메시지 수 업데이트
+        // 5초마다 읽지 않은 메시지 수 업데이트 (테스트용)
         unreadCountInterval = setInterval(async () => {
             try {
                 await loadUserRoomsFromServer();
@@ -3921,7 +3931,7 @@
             } catch (error) {
                 console.error('[실시간 업데이트] 읽지 않은 메시지 수 업데이트 실패:', error);
             }
-        }, 10000); // 10초마다 업데이트
+        }, 5000); // 5초마다 업데이트 (테스트용)
         
         console.log('[실시간 업데이트] 읽지 않은 메시지 수 폴링 시작');
     }
@@ -3974,6 +3984,15 @@
       
       // 읽지 않은 메시지 수 실시간 업데이트 시작
       startUnreadCountPolling();
+      
+      // 초기 로드 후 채팅방 목록 상태 확인
+      setTimeout(() => {
+        console.log('=== 채팅방 목록 초기 상태 확인 ===');
+        chatData.roomList.forEach(room => {
+          console.log(`방: ${room.name}, 타입: ${room.type}, 읽지 않은 메시지: ${room.unreadCount || 0}개`);
+        });
+        console.log('=== 채팅방 목록 상태 확인 완료 ===');
+      }, 2000);
       
       // 페이지 언로드 시 폴링 중지
       window.addEventListener('beforeunload', () => {

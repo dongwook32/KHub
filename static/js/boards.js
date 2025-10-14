@@ -565,7 +565,7 @@ function displayPosts(postsToShow) {
               ${post.departmentId ? `<span class="badge badge-outline">${departments.find(d => d.id === post.departmentId)?.name || post.departmentId}</span>` : ''}
             </div>
             <div class="post-title" onclick="viewPost('${post.id}')">${post.title}</div>
-            <div class="post-meta">${post.author}${post.year ? ` · ${post.year}학번` : ''}${post.status && !post.isAnonymous ? ` · ${post.status}` : ''} · ${formatTime(post.createdAt)}</div>
+            <div class="post-meta">${post.author}${post.year ? ` · ${post.year}학번` : ''}${post.status ? ` · ${post.status}` : ''} · ${formatTime(post.createdAt)}</div>
           </div>
           <div class="post-stats">
             <div class="stat-item">
@@ -922,7 +922,7 @@ function renderPostDetail(post, postComments) {
       </div>
       
       <div class="detail-meta">
-        ${post.author}${post.year ? ` · ${post.year}학번` : ''}${post.status && !post.isAnonymous ? ` · ${post.status}` : ''} · ${formatTime(post.createdAt)}
+        ${post.author}${post.year ? ` · ${post.year}학번` : ''}${post.status ? ` · ${post.status}` : ''} · ${formatTime(post.createdAt)}
         ${post.updatedAt ? `<span style="color: #6B7280; font-size: 12px;"> (수정됨)</span>` : ''}
       </div>
       
@@ -1253,7 +1253,7 @@ async function submitPost(event) {
   const content = form.postContent.value.trim();
   const type = form.postType.value;
   const department = form.postDepartment.value;
-  const isAnonymous = false; // 게시글은 실명으로 처리
+  const isAnonymous = true; // 게시글도 익명으로 처리
   
   if (!title || !content) {
     alert('제목과 내용을 모두 입력해주세요.');
@@ -1275,21 +1275,21 @@ async function submitPost(event) {
   const userProfile = JSON.parse(localStorage.getItem('userProfile') || 'null');
   const anonProfile = JSON.parse(localStorage.getItem('anonProfile') || 'null');
   
-  // 학번에서 입학년도 추출 (9자리 학번의 첫 4자리가 입학년도)
+  // 학번에서 입학년도 추출 (게시글은 실제 학번과 재학여부 표시)
   let yearDisplay = null;
   let statusDisplay = null;
   
-  if (!isAnonymous && userProfile && userProfile.studentId) {
+  if (userProfile && userProfile.studentId) {
     const studentId = userProfile.studentId;
     if (studentId.length >= 4) {
       const admissionYear = studentId.substring(0, 4); // 예: "2022"
       yearDisplay = admissionYear.substring(2); // 마지막 2자리: "22"
     }
     statusDisplay = userProfile.status || '재학생';
-  } else if (isAnonymous && anonProfile && anonProfile.year) {
+  } else if (anonProfile && anonProfile.year) {
     // 익명 프로필에서 학번 정보 가져오기
     yearDisplay = anonProfile.year.replace(/[^0-9]/g, ''); // "22학번" -> "22"
-    statusDisplay = null; // 익명일 때는 상태 표시 안함
+    statusDisplay = '재학생'; // 기본값
   }
   
   // 현재 사용자의 학번 (작성자 확인용)
@@ -1297,21 +1297,9 @@ async function submitPost(event) {
   
   const postId = 'p' + Date.now();
   
-  // 작성자명 설정
-  let authorName;
-  if (isAnonymous) {
-    const anonymousId = currentUserStudentId ? getAnonymousIdForPost(postId, currentUserStudentId) : 1;
-    authorName = '익명' + anonymousId;
-  } else {
-    // 실명으로 표시 (이름 또는 익명 프로필의 닉네임 사용)
-    if (userProfile && userProfile.name) {
-      authorName = userProfile.name;
-    } else if (anonProfile && anonProfile.nickname) {
-      authorName = anonProfile.nickname;
-    } else {
-      authorName = '익명사용자';
-    }
-  }
+  // 작성자명 설정 (항상 익명)
+  const anonymousId = currentUserStudentId ? getAnonymousIdForPost(postId, currentUserStudentId) : 1;
+  const authorName = '익명' + anonymousId;
   
   const newPost = {
     id: postId,
