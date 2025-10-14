@@ -2125,45 +2125,62 @@
         }
 
         // 그룹 매칭 시작
-        function startGroupMatching() {
+        async function startGroupMatching() {
             // 프로필 체크
             if (!checkAnonProfile()) {
                 return;
             }
             
-            // 현재 사용자의 성별 정보 가져오기
-            const currentProfile = JSON.parse(localStorage.getItem('anonProfile') || 'null');
-            const currentUserGender = currentProfile?.gender || '남자';
-            const currentUserNickname = currentProfile?.nickname || '익명의친구';
-            
-            // 대기열에 사용자 추가
-            const userInfo = {
-                nickname: currentUserNickname,
-                gender: currentUserGender,
-                joinTime: Date.now()
-            };
-            
-            if (currentUserGender === '남자') {
-                groupMatchingQueue.male.push(userInfo);
-            } else {
-                groupMatchingQueue.female.push(userInfo);
-            }
-            
-            groupMatching = true;
-            groupStartTime = Date.now();
-      document.getElementById('startGroup').style.display = 'none';
-      document.getElementById('groupMatchingStatus').style.display = 'block';
-            
-            groupTimer = setInterval(() => {
-                const elapsed = Math.floor((Date.now() - groupStartTime) / 1000);
-        document.getElementById('groupTimer').textContent = formatTime(elapsed);
+            try {
+                console.log('[그룹 매칭] 서버에 그룹 매칭 요청 전송');
                 
-                // 대기 상태 업데이트
-                updateGroupMatchingStatus();
-            }, 1000);
-
-            // 그룹 매칭 시도
-            tryGroupMatching();
+                // 서버에 그룹 매칭 요청
+                const response = await fetch('/api/group-matching/start', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                console.log('[그룹 매칭] 서버 응답:', result);
+                
+                if (result.success) {
+                    if (result.matched && result.group_data) {
+                        // 즉시 그룹 매칭 성공
+                        groupMatching = false;
+                        document.getElementById('startGroup').style.display = 'block';
+                        document.getElementById('groupMatchingStatus').style.display = 'none';
+                        
+                        // 매칭된 그룹을 채팅방 목록에 추가
+                        await handleMatchedGroup(result.group_data);
+                        
+                        alert(`그룹 매칭이 완료되었습니다! (${result.group_data.male_count}남 ${result.group_data.female_count}여)`);
+                    } else {
+                        // 그룹 매칭 대기 중
+                        groupMatching = true;
+                        groupStartTime = Date.now();
+                        document.getElementById('startGroup').style.display = 'none';
+                        document.getElementById('groupMatchingStatus').style.display = 'block';
+                        
+                        groupTimer = setInterval(() => {
+                            const elapsed = Math.floor((Date.now() - groupStartTime) / 1000);
+                            document.getElementById('groupTimer').textContent = formatTime(elapsed);
+                            
+                            // 대기 상태 업데이트
+                            updateGroupMatchingStatus();
+                        }, 1000);
+                        
+                        // 주기적으로 그룹 매칭 상태 확인
+                        checkGroupMatchingStatus();
+                    }
+                } else {
+                    alert(result.message || '그룹 매칭 중 오류가 발생했습니다.');
+                }
+            } catch (error) {
+                console.error('그룹 매칭 오류:', error);
+                alert('그룹 매칭 처리 중 오류가 발생했습니다. 다시 시도해주세요.');
+            }
         }
 
         // 1:1 매칭 완료 (기존 로컬 방식 - 서버 방식으로 대체됨)
@@ -2173,18 +2190,179 @@
         // }
 
         // 그룹 매칭 상태 업데이트
-        function updateGroupMatchingStatus() {
-            const maleCount = groupMatchingQueue.male.length;
-            const femaleCount = groupMatchingQueue.female.length;
-            const totalCount = maleCount + femaleCount;
-            
-            const matchingText = document.querySelector('#groupMatchingStatus .matching-text');
-            if (matchingText) {
-                if (totalCount < 3) {
-                    matchingText.textContent = `매칭 중... (대기자: 남자 ${maleCount}명, 여자 ${femaleCount}명)`;
-                } else {
-                    matchingText.textContent = `비율 맞춤 중... (대기자: 남자 ${maleCount}명, 여자 ${femaleCount}명)`;
+        async function updateGroupMatchingStatus() {
+            try {
+                // 서버에서 현재 대기 상태 확인
+                const response = await fetch('/api/group-matching/status');
+                const result = await response.json();
+                
+                if (result.success) {
+                    const maleCount = result.waiting_count.male;
+                    const femaleCount = result.waiting_count.female;
+                    const totalCount = maleCount + femaleCount;
+                    
+                    const matchingText = document.querySelector('#groupMatchingStatus .matching-text');
+                    if (matchingText) {
+                        if (totalCount < 3) {
+                            matchingText.textContent = `매칭 중... (대기자: 남자 ${maleCount}명, 여자 ${femaleCount}명)`;
+                        } else {
+                            matchingText.textContent = `비율 맞춤 중... (대기자: 남자 ${maleCount}명, 여자 ${femaleCount}명)`;
+                        }
+                    }
                 }
+            } catch (error) {
+                console.error('그룹 매칭 상태 업데이트 실패:', error);
+            }
+        }
+
+        // 그룹 매칭 상태 확인
+        async function checkGroupMatchingStatus() {
+            if (!groupMatching) return;
+            
+            try {
+                // 서버에서 그룹 매칭 상태 확인
+                const response = await fetch('/api/group-matching/status');
+                const result = await response.json();
+                
+                if (result.success) {
+                    if (!result.in_queue) {
+                        // 대기열에서 제거됨 (매칭 완료)
+                        clearInterval(groupTimer);
+                        groupMatching = false;
+                        document.getElementById('startGroup').style.display = 'block';
+                        document.getElementById('groupMatchingStatus').style.display = 'none';
+                        
+                        // 서버에서 그룹 채팅방 목록 확인
+                        await loadGroupRoomsFromServer();
+                        
+                        alert('그룹 매칭이 완료되었습니다!');
+                        return;
+                    }
+                    
+                    // 대기 상태 업데이트
+                    updateGroupMatchingStatus();
+                }
+                
+                // 2초 후 다시 확인
+                setTimeout(checkGroupMatchingStatus, 2000);
+            } catch (error) {
+                console.error('그룹 매칭 상태 확인 실패:', error);
+                setTimeout(checkGroupMatchingStatus, 2000);
+            }
+        }
+
+        // 매칭된 그룹 처리
+        async function handleMatchedGroup(groupData) {
+            console.log('[그룹 매칭] 매칭된 그룹 처리:', groupData);
+            
+            // 그룹 채팅방을 채팅방 목록에 추가
+            const groupRoom = {
+                name: groupData.room_name,
+                type: 'group',
+                roomId: groupData.room_id,
+                unreadCount: 0,
+                participantCount: groupData.members.length,
+                createdAt: new Date().toISOString()
+            };
+            
+            // 채팅방 목록에 추가
+            chatData.roomList.push(groupRoom);
+            
+            // 참여자 정보 저장
+            roomParticipants[groupData.room_name] = {
+                count: groupData.members.length,
+                users: groupData.members.map(member => member.nickname),
+                unreadCount: 0
+            };
+            
+            // 채팅방 데이터 초기화
+            if (!chatData.rooms[groupData.room_name]) {
+                chatData.rooms[groupData.room_name] = [];
+            }
+            
+            // 데이터 저장
+            saveChatData();
+            updateRoomListUI();
+            
+            console.log(`[그룹 매칭] ${groupData.room_name} 방이 추가되었습니다`);
+        }
+
+        // 서버에서 그룹 채팅방 목록 로드
+        async function loadGroupRoomsFromServer() {
+            try {
+                const response = await fetch('/api/group-rooms');
+                const result = await response.json();
+                
+                if (result.success && result.rooms) {
+                    const serverRooms = result.rooms;
+                    const currentRoomNames = chatData.roomList.filter(room => room.type === 'group').map(room => room.name);
+                    
+                    for (const serverRoom of serverRooms) {
+                        if (!currentRoomNames.includes(serverRoom.room_name)) {
+                            // 새로운 그룹 방을 로컬에 추가
+                            const newRoom = {
+                                name: serverRoom.room_name,
+                                type: 'group',
+                                roomId: serverRoom.room_id,
+                                unreadCount: 0,
+                                participantCount: serverRoom.member_count,
+                                createdAt: new Date(serverRoom.created_at * 1000).toISOString()
+                            };
+                            
+                            chatData.roomList.push(newRoom);
+                            
+                            // roomParticipants에 추가
+                            roomParticipants[serverRoom.room_name] = {
+                                count: serverRoom.member_count,
+                                users: [],
+                                unreadCount: 0
+                            };
+                            
+                            // 채팅방 데이터 초기화
+                            if (!chatData.rooms[serverRoom.room_name]) {
+                                chatData.rooms[serverRoom.room_name] = [];
+                            }
+                            
+                            console.log(`[서버 동기화] 새로운 그룹 방 발견: ${serverRoom.room_name}`);
+                        }
+                    }
+                    
+                    if (serverRooms.length > 0) {
+                        saveChatData();
+                        updateRoomListUI();
+                        console.log(`[서버 동기화] ${serverRooms.length}개 그룹 방 동기화 완료`);
+                    }
+                }
+            } catch (error) {
+                console.error('서버 그룹 방 목록 로드 실패:', error);
+            }
+        }
+
+        // 그룹 채팅방 메시지 로드
+        async function loadGroupRoomMessages(roomName, roomId) {
+            try {
+                console.log(`[그룹 메시지 로드] ${roomName} (${roomId}) 메시지 로드 시작`);
+                
+                const response = await fetch(`/api/group-messages/${roomId}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    const messages = result.messages || [];
+                    console.log(`[그룹 메시지 로드] ${messages.length}개 메시지 로드됨`);
+                    
+                    // 로컬 채팅방 데이터에 저장
+                    chatData.rooms[roomName] = messages;
+                    saveChatData();
+                    
+                    // 메시지 UI 렌더링
+                    renderMessages(messages);
+                } else {
+                    console.error('그룹 메시지 로드 실패:', result.message);
+                    chatData.rooms[roomName] = [];
+                }
+            } catch (error) {
+                console.error('그룹 메시지 로드 오류:', error);
+                chatData.rooms[roomName] = [];
             }
         }
 
@@ -2299,21 +2477,36 @@
       document.getElementById('randomMatchingStatus').style.display = 'none';
         }
 
-        function cancelGroupMatching() {
-            // 현재 사용자를 대기열에서 제거
-            const currentProfile = JSON.parse(localStorage.getItem('anonProfile') || 'null');
-            const currentUserNickname = currentProfile?.nickname || '익명의친구';
-            
-            // 남자 대기열에서 제거
-            groupMatchingQueue.male = groupMatchingQueue.male.filter(user => user.nickname !== currentUserNickname);
-            // 여자 대기열에서 제거
-            groupMatchingQueue.female = groupMatchingQueue.female.filter(user => user.nickname !== currentUserNickname);
-            
-            groupMatching = false;
-            clearInterval(groupTimer);
-      document.getElementById('startGroup').style.display = 'block';
-      document.getElementById('groupMatchingStatus').style.display = 'none';
-    }
+        async function cancelGroupMatching() {
+            try {
+                console.log('[그룹 매칭 취소] 서버에 취소 요청 전송');
+                
+                // 서버에 그룹 매칭 취소 요청
+                const response = await fetch('/api/group-matching/cancel', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                console.log('[그룹 매칭 취소] 서버 응답:', result);
+                
+                if (result.success) {
+                    groupMatching = false;
+                    clearInterval(groupTimer);
+                    document.getElementById('startGroup').style.display = 'block';
+                    document.getElementById('groupMatchingStatus').style.display = 'none';
+                    
+                    console.log('[그룹 매칭 취소] 성공');
+                } else {
+                    alert(result.message || '그룹 매칭 취소 중 오류가 발생했습니다.');
+                }
+            } catch (error) {
+                console.error('그룹 매칭 취소 오류:', error);
+                alert('그룹 매칭 취소 처리 중 오류가 발생했습니다. 다시 시도해주세요.');
+            }
+        }
 
     // 채팅방 생성
     function createRoom(listId, roomName) {
@@ -2369,6 +2562,13 @@
                 // 메시지 폴링 시작
                 startMessagePolling();
                 console.log(`[입장] ${roomName} 방 입장 완료, 폴링 시작됨`);
+            } else if (roomData && roomData.type === 'group') {
+                // 그룹 채팅방: 서버에서 메시지 로드
+                await loadGroupRoomMessages(roomName, roomData.roomId);
+                
+                // 메시지 폴링 시작
+                startMessagePolling();
+                console.log(`[입장] ${roomName} 그룹 방 입장 완료, 폴링 시작됨`);
             } else {
                 // 관심분야 방: 서버에서 메시지 로드
                 await loadRoomMessages(roomName);
@@ -2556,47 +2756,79 @@
                 // 방 정보 가져오기
                 const roomData = chatData.roomList.find(room => room.name === currentRoom);
                 
-                // 1:1 채팅방인 경우 roomId 사용, 그 외에는 roomName 사용
-                const roomId = (roomData && roomData.type === 'dm' && roomData.roomId) ? roomData.roomId : currentRoom;
-                
-                console.log(`[전송] 실제 채팅방 ID: ${roomId} (타입: ${roomData?.type || 'unknown'})`);
-                
                 // 내 메시지를 즉시 표시
                 addMessage(message, true);
                 messageInput.value = '';
                 
-                // 서버에 메시지 전송
-                try {
-                    const anonProfile = JSON.parse(localStorage.getItem('anonProfile') || 'null');
-                    const nickname = anonProfile ? anonProfile.nickname : '익명';
+                // 그룹 채팅방인 경우
+                if (roomData && roomData.type === 'group' && roomData.roomId) {
+                    console.log(`[전송] 그룹 채팅방 ID: ${roomData.roomId}`);
                     
-                    console.log(`[전송] 닉네임: ${nickname}, 채팅방 ID: ${roomId}`);
-                    
-                    const response = await fetch(`/api/chat/messages/${encodeURIComponent(roomId)}`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            message: message,
-                            sender_nickname: nickname
-                        })
-                    });
-                    
-                    const result = await response.json();
-                    
-                    if (result.success && result.message_data) {
-                        // 내가 보낸 메시지 ID를 해당 채팅방의 추적 목록에 추가 (중복 방지)
-                        if (!displayedMessageIds[currentRoom]) {
-                            displayedMessageIds[currentRoom] = new Set();
+                    try {
+                        const response = await fetch(`/api/group-messages/${roomData.roomId}`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                message: message
+                            })
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (result.success && result.message_data) {
+                            // 내가 보낸 메시지 ID를 해당 채팅방의 추적 목록에 추가 (중복 방지)
+                            if (!displayedMessageIds[currentRoom]) {
+                                displayedMessageIds[currentRoom] = new Set();
+                            }
+                            displayedMessageIds[currentRoom].add(result.message_data.id);
+                            console.log(`[그룹 전송 성공] 메시지 ID: ${result.message_data.id}`);
+                        } else {
+                            console.error('그룹 메시지 전송 실패:', result.message);
                         }
-                        displayedMessageIds[currentRoom].add(result.message_data.id);
-                        console.log(`[전송 성공] 메시지 ID: ${result.message_data.id}`);
-                    } else {
-                        console.error('메시지 전송 실패:', result.message);
+                    } catch (error) {
+                        console.error('그룹 메시지 전송 오류:', error);
                     }
-                } catch (error) {
-                    console.error('메시지 전송 오류:', error);
+                } else {
+                    // 1:1 채팅방 또는 관심분야 채팅방
+                    const roomId = (roomData && roomData.type === 'dm' && roomData.roomId) ? roomData.roomId : currentRoom;
+                    
+                    console.log(`[전송] 실제 채팅방 ID: ${roomId} (타입: ${roomData?.type || 'unknown'})`);
+                    
+                    // 서버에 메시지 전송
+                    try {
+                        const anonProfile = JSON.parse(localStorage.getItem('anonProfile') || 'null');
+                        const nickname = anonProfile ? anonProfile.nickname : '익명';
+                        
+                        console.log(`[전송] 닉네임: ${nickname}, 채팅방 ID: ${roomId}`);
+                        
+                        const response = await fetch(`/api/chat/messages/${encodeURIComponent(roomId)}`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                message: message,
+                                sender_nickname: nickname
+                            })
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (result.success && result.message_data) {
+                            // 내가 보낸 메시지 ID를 해당 채팅방의 추적 목록에 추가 (중복 방지)
+                            if (!displayedMessageIds[currentRoom]) {
+                                displayedMessageIds[currentRoom] = new Set();
+                            }
+                            displayedMessageIds[currentRoom].add(result.message_data.id);
+                            console.log(`[전송 성공] 메시지 ID: ${result.message_data.id}`);
+                        } else {
+                            console.error('메시지 전송 실패:', result.message);
+                        }
+                    } catch (error) {
+                        console.error('메시지 전송 오류:', error);
+                    }
                 }
             } else {
                 console.warn('메시지 또는 현재 채팅방이 없습니다.');
@@ -2672,11 +2904,18 @@
                     // 방 정보 가져오기
                     const roomData = chatData.roomList.find(room => room.name === currentRoom);
                     
-                    // 1:1 채팅방인 경우 roomId 사용, 그 외에는 roomName 사용
-                    const roomId = (roomData && roomData.type === 'dm' && roomData.roomId) ? roomData.roomId : currentRoom;
+                    let response, result;
                     
-                    const response = await fetch(`/api/chat/messages/${encodeURIComponent(roomId)}`);
-                    const result = await response.json();
+                    // 그룹 채팅방인 경우
+                    if (roomData && roomData.type === 'group' && roomData.roomId) {
+                        response = await fetch(`/api/group-messages/${roomData.roomId}`);
+                        result = await response.json();
+                    } else {
+                        // 1:1 채팅방 또는 관심분야 채팅방
+                        const roomId = (roomData && roomData.type === 'dm' && roomData.roomId) ? roomData.roomId : currentRoom;
+                        response = await fetch(`/api/chat/messages/${encodeURIComponent(roomId)}`);
+                        result = await response.json();
+                    }
                     
                     if (result.success && result.messages) {
                         const anonProfile = JSON.parse(localStorage.getItem('anonProfile') || 'null');
@@ -2694,8 +2933,13 @@
                             console.log(`[폴링] ${currentRoom} 방에서 ${newMessages.length}개의 새 메시지 발견`);
                             
                             newMessages.forEach(msg => {
-                                console.log(`[폴링] 메시지 표시: ${msg.sender} - ${msg.content.substring(0, 20)}... (타입: ${msg.type || 'text'})`);
-                                addMessageFromServer(msg);
+                                console.log(`[폴링] 메시지 표시: ${msg.sender || msg.sender_nickname} - ${(msg.content || msg.message).substring(0, 20)}... (타입: ${msg.type || 'text'})`);
+                                // 그룹 메시지는 형식이 다를 수 있으므로 처리
+                                if (roomData && roomData.type === 'group') {
+                                    addGroupMessageFromServer(msg);
+                                } else {
+                                    addMessageFromServer(msg);
+                                }
                                 displayedMessageIds[currentRoom].add(msg.id);
                             });
                         }
@@ -2734,6 +2978,57 @@
       document.querySelectorAll('.room-list li, #dmList li, #interestList li').forEach(li => {
         li.classList.remove('active');
       });
+        }
+
+        // 그룹 메시지 표시 (서버에서 받은 그룹 메시지용)
+        function addGroupMessageFromServer(msg) {
+            if (!currentRoom) return;
+            
+            const messages = document.getElementById('messages');
+            const anonProfile = JSON.parse(localStorage.getItem('anonProfile') || 'null');
+            const myNickname = anonProfile ? anonProfile.nickname : '익명';
+            
+            // 시간 문자열 생성
+            let timeString = '';
+            if (msg.timestamp) {
+                const date = new Date(msg.timestamp * 1000);
+                timeString = date.toLocaleTimeString('ko-KR', { 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    hour12: false 
+                });
+            }
+            
+            const messageWrapper = document.createElement('div');
+            
+            // 그룹 메시지는 sender_nickname과 message 필드 사용
+            const senderNickname = msg.sender_nickname || msg.sender || '익명';
+            const messageContent = msg.message || msg.content || '';
+            const isMyMessage = senderNickname === myNickname;
+            
+            messageWrapper.className = `msg-wrapper ${isMyMessage ? 'me' : ''}`;
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `msg ${isMyMessage ? 'me' : ''}`;
+            
+            if (isMyMessage) {
+                // 내 메시지
+                messageDiv.innerHTML = `
+                    <div class="msg-content">${messageContent}</div>
+                    <div class="msg-time">${timeString}</div>
+                `;
+            } else {
+                // 다른 사람 메시지 (닉네임 표시)
+                messageDiv.innerHTML = `
+                    <div class="msg-nickname">${senderNickname}</div>
+                    <div class="msg-content">${messageContent}</div>
+                    <div class="msg-time">${timeString}</div>
+                `;
+            }
+            
+            messageWrapper.appendChild(messageDiv);
+            messages.appendChild(messageWrapper);
+            messages.scrollTop = messages.scrollHeight;
         }
 
         // 서버에서 받은 메시지 추가 (시스템 메시지 포함)
@@ -3581,6 +3876,9 @@
       
       // 서버에서 랜덤 매칭 프로필 로드
       loadRandomProfiles();
+      
+      // 서버에서 그룹 채팅방 목록 로드
+      loadGroupRoomsFromServer();
       
       // 기본 관심분야 방들을 채팅방 목록에 추가
       initializeDefaultInterestRooms();

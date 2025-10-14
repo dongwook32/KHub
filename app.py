@@ -18,6 +18,8 @@ ANON_PROFILES_FILE = 'anon_profiles.json'
 BOARD_POSTS_FILE = 'board_posts.json'
 BOARD_COMMENTS_FILE = 'board_comments.json'
 CHAT_MESSAGES_FILE = 'chat_messages.json'
+GROUP_MATCHING_FILE = 'group_matching.json'
+GROUP_ROOMS_FILE = 'group_rooms.json'
 
 def load_users():
     """등록된 사용자 정보 불러오기"""
@@ -162,6 +164,48 @@ def save_chat_rooms(rooms):
         return True
     except Exception as e:
         print(f"채팅방 정보 저장 실패: {e}")
+        return False
+
+def load_group_matching():
+    """그룹 매칭 대기열 불러오기"""
+    if os.path.exists(GROUP_MATCHING_FILE):
+        try:
+            with open(GROUP_MATCHING_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"[그룹 매칭 로드 실패] 오류: {e}")
+            return {'male': [], 'female': [], 'groups': []}
+    return {'male': [], 'female': [], 'groups': []}
+
+def save_group_matching(data):
+    """그룹 매칭 대기열 저장하기"""
+    try:
+        with open(GROUP_MATCHING_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        return True
+    except Exception as e:
+        print(f"[그룹 매칭 저장 실패] 오류: {e}")
+        return False
+
+def load_group_rooms():
+    """그룹 채팅방 정보 불러오기"""
+    if os.path.exists(GROUP_ROOMS_FILE):
+        try:
+            with open(GROUP_ROOMS_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"[그룹 채팅방 로드 실패] 오류: {e}")
+            return {}
+    return {}
+
+def save_group_rooms(rooms):
+    """그룹 채팅방 정보 저장하기"""
+    try:
+        with open(GROUP_ROOMS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(rooms, f, ensure_ascii=False, indent=2)
+        return True
+    except Exception as e:
+        print(f"[그룹 채팅방 저장 실패] 오류: {e}")
         return False
 
 def try_matching(matching_data):
@@ -1479,6 +1523,350 @@ def profile_setup():
         return redirect(url_for('chat'))
     
     return render_template('profile-setup.html')
+
+def try_group_matching(matching_data):
+    """그룹 매칭 시도 (3-6명, 남녀 비율 유지)"""
+    male_queue = matching_data.get('male', [])
+    female_queue = matching_data.get('female', [])
+    
+    total_count = len(male_queue) + len(female_queue)
+    
+    # 최소 3명 이상이어야 그룹 매칭 가능
+    if total_count < 3:
+        return None
+    
+    # 가능한 그룹 조합 찾기 (3-6명)
+    for group_size in range(3, 7):
+        for male_count in range(1, group_size):
+            female_count = group_size - male_count
+            
+            # 비율 체크: 5:5 ~ 2:1 범위
+            ratio = max(male_count, female_count) / min(male_count, female_count)
+            if ratio <= 2 and male_count <= len(male_queue) and female_count <= len(female_queue):
+                # 그룹 멤버 선택
+                group_members = []
+                
+                # 남자 멤버 선택
+                for i in range(male_count):
+                    if male_queue:
+                        group_members.append(male_queue.pop(0))
+                
+                # 여자 멤버 선택
+                for i in range(female_count):
+                    if female_queue:
+                        group_members.append(female_queue.pop(0))
+                
+                if len(group_members) == group_size:
+                    # 그룹 채팅방 생성
+                    room_id = f"group_{int(time.time())}_{group_size}"
+                    group_room_name = f"그룹 {len(matching_data.get('groups', [])) + 1}"
+                    
+                    # 그룹 채팅방 데이터 생성
+                    group_room = {
+                        'room_id': room_id,
+                        'room_name': group_room_name,
+                        'type': 'group',
+                        'members': group_members,
+                        'created_at': time.time(),
+                        'active': True,
+                        'message_count': 0
+                    }
+                    
+                    # 그룹 채팅방 저장
+                    group_rooms = load_group_rooms()
+                    group_rooms[room_id] = group_room
+                    save_group_rooms(group_rooms)
+                    
+                    # 완성된 그룹을 대기열에 저장
+                    if 'groups' not in matching_data:
+                        matching_data['groups'] = []
+                    
+                    matching_data['groups'].append({
+                        'room_id': room_id,
+                        'room_name': group_room_name,
+                        'members': group_members,
+                        'created_at': time.time()
+                    })
+                    
+                    # 대기열 업데이트
+                    matching_data['male'] = male_queue
+                    matching_data['female'] = female_queue
+                    save_group_matching(matching_data)
+                    
+                    print(f"[그룹 매칭 성공] {group_room_name} 생성 - {male_count}남 {female_count}여")
+                    
+                    return {
+                        'room_id': room_id,
+                        'room_name': group_room_name,
+                        'members': group_members,
+                        'male_count': male_count,
+                        'female_count': female_count
+                    }
+    
+    return None
+
+@app.route('/api/group-matching/start', methods=['POST'])
+def start_group_matching():
+    """그룹 매칭 시작"""
+    # 로그인 체크
+    if 'user' not in session or not session.get('user'):
+        return jsonify({'success': False, 'message': '로그인이 필요합니다.'}), 401
+    
+    current_user = session.get('user', {})
+    current_student_id = current_user.get('student_id')
+    
+    if not current_student_id:
+        return jsonify({'success': False, 'message': '사용자 정보를 찾을 수 없습니다.'}), 400
+    
+    # 익명 프로필 확인
+    anon_profiles = load_anon_profiles()
+    user_profile = next((p for p in anon_profiles if p.get('student_id') == current_student_id), None)
+    
+    if not user_profile:
+        return jsonify({'success': False, 'message': '익명 프로필을 먼저 설정해주세요.'}), 400
+    
+    # 그룹 매칭 대기열 로드
+    matching_data = load_group_matching()
+    
+    # 사용자 정보 생성
+    user_info = {
+        'student_id': current_student_id,
+        'nickname': user_profile.get('nickname', '익명'),
+        'gender': user_profile.get('gender', '남자'),
+        'join_time': time.time()
+    }
+    
+    # 이미 대기열에 있는지 확인
+    existing_male = next((u for u in matching_data['male'] if u.get('student_id') == current_student_id), None)
+    existing_female = next((u for u in matching_data['female'] if u.get('student_id') == current_student_id), None)
+    
+    if existing_male or existing_female:
+        return jsonify({'success': False, 'message': '이미 그룹 매칭 대기열에 있습니다.'}), 400
+    
+    # 성별에 따라 대기열에 추가
+    if user_info['gender'] == '남자':
+        matching_data['male'].append(user_info)
+    else:
+        matching_data['female'].append(user_info)
+    
+    # 대기열 저장
+    save_group_matching(matching_data)
+    
+    print(f"[그룹 매칭] {user_info['nickname']} ({user_info['gender']}) 대기열 추가")
+    
+    # 그룹 매칭 시도
+    group_result = try_group_matching(matching_data)
+    
+    if group_result:
+        return jsonify({
+            'success': True,
+            'matched': True,
+            'group_data': group_result
+        })
+    else:
+        return jsonify({
+            'success': True,
+            'matched': False,
+            'message': '그룹 매칭 대기 중입니다.',
+            'waiting_count': {
+                'male': len(matching_data['male']),
+                'female': len(matching_data['female'])
+            }
+        })
+
+@app.route('/api/group-matching/cancel', methods=['POST'])
+def cancel_group_matching():
+    """그룹 매칭 취소"""
+    # 로그인 체크
+    if 'user' not in session or not session.get('user'):
+        return jsonify({'success': False, 'message': '로그인이 필요합니다.'}), 401
+    
+    current_user = session.get('user', {})
+    current_student_id = current_user.get('student_id')
+    
+    if not current_student_id:
+        return jsonify({'success': False, 'message': '사용자 정보를 찾을 수 없습니다.'}), 400
+    
+    # 그룹 매칭 대기열에서 제거
+    matching_data = load_group_matching()
+    
+    # 남자 대기열에서 제거
+    matching_data['male'] = [u for u in matching_data['male'] if u.get('student_id') != current_student_id]
+    # 여자 대기열에서 제거
+    matching_data['female'] = [u for u in matching_data['female'] if u.get('student_id') != current_student_id]
+    
+    save_group_matching(matching_data)
+    
+    print(f"[그룹 매칭 취소] 학번 {current_student_id} 대기열에서 제거")
+    
+    return jsonify({
+        'success': True,
+        'message': '그룹 매칭이 취소되었습니다.'
+    })
+
+@app.route('/api/group-matching/status', methods=['GET'])
+def get_group_matching_status():
+    """그룹 매칭 상태 확인"""
+    # 로그인 체크
+    if 'user' not in session or not session.get('user'):
+        return jsonify({'success': False, 'message': '로그인이 필요합니다.'}), 401
+    
+    current_user = session.get('user', {})
+    current_student_id = current_user.get('student_id')
+    
+    if not current_student_id:
+        return jsonify({'success': False, 'message': '사용자 정보를 찾을 수 없습니다.'}), 400
+    
+    # 그룹 매칭 대기열 로드
+    matching_data = load_group_matching()
+    
+    # 사용자가 대기열에 있는지 확인
+    in_male_queue = any(u.get('student_id') == current_student_id for u in matching_data['male'])
+    in_female_queue = any(u.get('student_id') == current_student_id for u in matching_data['female'])
+    
+    return jsonify({
+        'success': True,
+        'in_queue': in_male_queue or in_female_queue,
+        'waiting_count': {
+            'male': len(matching_data['male']),
+            'female': len(matching_data['female'])
+        }
+    })
+
+@app.route('/api/group-rooms', methods=['GET'])
+def get_group_rooms():
+    """사용자의 그룹 채팅방 목록 조회"""
+    # 로그인 체크
+    if 'user' not in session or not session.get('user'):
+        return jsonify({'success': False, 'message': '로그인이 필요합니다.'}), 401
+    
+    current_user = session.get('user', {})
+    current_student_id = current_user.get('student_id')
+    
+    if not current_student_id:
+        return jsonify({'success': False, 'message': '사용자 정보를 찾을 수 없습니다.'}), 400
+    
+    # 그룹 채팅방 로드
+    group_rooms = load_group_rooms()
+    
+    # 사용자가 참여한 그룹 채팅방만 필터링
+    user_rooms = []
+    for room_id, room_data in group_rooms.items():
+        if room_data.get('active', True):
+            members = room_data.get('members', [])
+            if any(member.get('student_id') == current_student_id for member in members):
+                user_rooms.append({
+                    'room_id': room_id,
+                    'room_name': room_data.get('room_name', ''),
+                    'type': 'group',
+                    'member_count': len(members),
+                    'created_at': room_data.get('created_at', 0)
+                })
+    
+    return jsonify({
+        'success': True,
+        'rooms': user_rooms
+    })
+
+@app.route('/api/group-messages/<room_id>', methods=['GET'])
+def get_group_messages(room_id):
+    """그룹 채팅방 메시지 조회"""
+    # 로그인 체크
+    if 'user' not in session or not session.get('user'):
+        return jsonify({'success': False, 'message': '로그인이 필요합니다.'}), 401
+    
+    current_user = session.get('user', {})
+    current_student_id = current_user.get('student_id')
+    
+    if not current_student_id:
+        return jsonify({'success': False, 'message': '사용자 정보를 찾을 수 없습니다.'}), 400
+    
+    # 그룹 채팅방 확인
+    group_rooms = load_group_rooms()
+    room_data = group_rooms.get(room_id)
+    
+    if not room_data:
+        return jsonify({'success': False, 'message': '채팅방을 찾을 수 없습니다.'}), 404
+    
+    # 사용자가 이 그룹에 참여할 수 있는지 확인
+    members = room_data.get('members', [])
+    if not any(member.get('student_id') == current_student_id for member in members):
+        return jsonify({'success': False, 'message': '이 그룹에 참여할 권한이 없습니다.'}), 403
+    
+    # 메시지 로드
+    messages = load_chat_messages()
+    room_messages = messages.get(room_id, [])
+    
+    return jsonify({
+        'success': True,
+        'messages': room_messages
+    })
+
+@app.route('/api/group-messages/<room_id>', methods=['POST'])
+def send_group_message(room_id):
+    """그룹 채팅방 메시지 전송"""
+    # 로그인 체크
+    if 'user' not in session or not session.get('user'):
+        return jsonify({'success': False, 'message': '로그인이 필요합니다.'}), 401
+    
+    current_user = session.get('user', {})
+    current_student_id = current_user.get('student_id')
+    
+    if not current_student_id:
+        return jsonify({'success': False, 'message': '사용자 정보를 찾을 수 없습니다.'}), 400
+    
+    # 그룹 채팅방 확인
+    group_rooms = load_group_rooms()
+    room_data = group_rooms.get(room_id)
+    
+    if not room_data:
+        return jsonify({'success': False, 'message': '채팅방을 찾을 수 없습니다.'}), 404
+    
+    # 사용자가 이 그룹에 참여할 수 있는지 확인
+    members = room_data.get('members', [])
+    user_member = next((member for member in members if member.get('student_id') == current_student_id), None)
+    
+    if not user_member:
+        return jsonify({'success': False, 'message': '이 그룹에 참여할 권한이 없습니다.'}), 403
+    
+    # 메시지 데이터 수집
+    data = request.get_json()
+    message_text = data.get('message', '').strip()
+    
+    if not message_text:
+        return jsonify({'success': False, 'message': '메시지를 입력해주세요.'}), 400
+    
+    # 메시지 생성
+    message = {
+        'id': f"group_{room_id}_{int(time.time() * 1000)}",
+        'room_id': room_id,
+        'sender_id': current_student_id,
+        'sender_nickname': user_member.get('nickname', '익명'),
+        'message': message_text,
+        'timestamp': time.time(),
+        'type': 'group'
+    }
+    
+    # 메시지 저장
+    messages = load_chat_messages()
+    if room_id not in messages:
+        messages[room_id] = []
+    
+    messages[room_id].append(message)
+    save_chat_messages(messages)
+    
+    # 그룹 채팅방 메시지 수 증가
+    room_data['message_count'] = room_data.get('message_count', 0) + 1
+    group_rooms[room_id] = room_data
+    save_group_rooms(group_rooms)
+    
+    print(f"[그룹 메시지] {room_id}: {user_member.get('nickname')} - {message_text}")
+    
+    return jsonify({
+        'success': True,
+        'message': '메시지가 전송되었습니다.',
+        'message_data': message
+    })
 
 if __name__ == '__main__':
     app.run(debug=True)
