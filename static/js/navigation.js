@@ -117,31 +117,8 @@ class NavigationManager {
         const mobileNav = document.getElementById('mobileNav');
         
         if (menuBtn && mobileNav) {
-            // 메뉴 버튼 클릭 시 토글
-            menuBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
+            menuBtn.addEventListener('click', () => {
                 mobileNav.classList.toggle('hidden');
-                console.log('📱 모바일 메뉴 토글:', !mobileNav.classList.contains('hidden'));
-            });
-            
-            // 모바일 메뉴 아이템 클릭 시 메뉴 닫기
-            const mobileNavLinks = mobileNav.querySelectorAll('a');
-            mobileNavLinks.forEach(link => {
-                link.addEventListener('click', () => {
-                    mobileNav.classList.add('hidden');
-                    console.log('📱 모바일 메뉴 닫힘 (링크 클릭)');
-                });
-            });
-            
-            // 모바일 메뉴 외부 클릭 시 메뉴 닫기
-            document.addEventListener('click', (e) => {
-                if (!mobileNav.classList.contains('hidden') && 
-                    !menuBtn.contains(e.target) && 
-                    !mobileNav.contains(e.target)) {
-                    mobileNav.classList.add('hidden');
-                    console.log('📱 모바일 메뉴 닫힘 (외부 클릭)');
-                }
             });
         }
     }

@@ -340,7 +340,7 @@
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  padding: 120px 20px 20px 20px; /* 상단에 헤더 높이(80px) + 여백(40px) 확보 */
+  padding: 20px;
 }
 
 .modal-content {
@@ -348,7 +348,7 @@
   border-radius: 12px;
   width: 100%;
   max-width: 500px;
-  max-height: calc(100vh - 200px); /* 헤더 높이(80px) + 상하 여백(120px) 제외 */
+  max-height: 90vh;
   overflow: hidden;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
   display: flex;
@@ -392,11 +392,11 @@
 }
 
 .modal-body {
-  padding: 20px 24px 16px 24px; /* 상하 패딩 줄임 */
+  padding: 24px;
   overflow-y: auto;
   flex: 1;
   min-height: 0;
-  box-sizing: border-box;
+  max-height: 70vh;
 }
 
 .modal-body::-webkit-scrollbar {
@@ -421,17 +421,13 @@
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-  padding: 12px 24px; /* 푸터 패딩 줄임 */
+  padding: 16px 24px;
   border-top: 1px solid var(--border-color);
 }
 
 /* 폼 그룹 */
 .form-group {
-  margin-bottom: 20px; /* 폼 그룹 간격 줄임 */
-}
-
-.form-group:last-child {
-  margin-bottom: 16px; /* 마지막 폼 그룹(관심사) 하단 여백 줄임 */
+  margin-bottom: 20px;
 }
 
 .form-group label {
@@ -463,38 +459,6 @@
 .form-group textarea {
   resize: vertical;
   min-height: 100px;
-}
-
-/* 관심사 버튼 그룹 */
-#editAnonInterests {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 8px;
-  padding-bottom: 8px; /* 관심사 섹션 하단 여백 줄임 */
-}
-
-.interest-chip {
-  padding: 8px 16px;
-  border: 1px solid var(--border-color);
-  border-radius: 20px;
-  background: white;
-  color: var(--text-color);
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-}
-
-.interest-chip:hover {
-  border-color: var(--primary-color);
-  background: #FFF7F2;
-}
-
-.interest-chip.selected {
-  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-  border-color: var(--primary-color);
-  color: white;
 }
 
 /* 스위치 그룹 */
@@ -658,19 +622,6 @@
   .activity-grid,
   .links-grid {
     padding: 16px;
-  }
-
-  .modal {
-    padding: 100px 10px 10px 10px; /* 모바일에서 상단 여백 조정 */
-  }
-
-  .modal-content {
-    max-height: calc(100vh - 140px); /* 모바일에서 높이 조정 */
-    margin: 0;
-  }
-
-  .modal-body {
-    padding: 16px 20px 12px 20px; /* 모바일에서 패딩 줄임 */
   }
 }
 

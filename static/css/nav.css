@@ -76,9 +76,9 @@
   /* 모바일 네비게이션 스타일 */
   #mobileNav .py-2 {
     box-sizing: border-box;
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    justify-content: flex-start;
+    justify-content: center;
     white-space: nowrap;
     text-decoration: none;
     font-family: var(--nav-font-family);
@@ -86,21 +86,16 @@
     font-weight: var(--nav-font-weight);
     letter-spacing: var(--nav-letter-spacing);
     line-height: var(--nav-line-height);
-    padding: 12px 16px;
+    padding: var(--nav-pad-y) var(--nav-pad-x);
     border-radius: var(--nav-radius);
     color: var(--nav-inactive-fg);
     transition: background-color .15s ease, color .15s ease, opacity .15s ease;
-    min-height: 44px; /* iOS 최소 터치 영역 */
-    width: 100%;
-    cursor: pointer;
-    position: relative;
-    z-index: 1;
+    min-height: calc((var(--nav-line-height) * var(--nav-font-size)) + (var(--nav-pad-y) * 2));
   }
 
-  #mobileNav .py-2:is(:hover, :focus-visible, :active) {
+  #mobileNav .py-2:is(:hover, :focus-visible) {
     opacity: var(--nav-hover-opacity);
     outline: none;
-    background: rgba(255, 159, 128, 0.1);
   }
 
   #mobileNav .py-2.active {
@@ -127,30 +122,6 @@
     height: 100% !important;
     min-height: 100% !important;
     transform: translateZ(0) !important;
-  }
-
-  /* 모바일 네비게이션 z-index 및 터치 최적화 */
-  #mobileNav {
-    position: relative;
-    z-index: 10000;
-    -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;
-  }
-
-  #mobileNav a {
-    -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;
-    user-select: none;
-    -webkit-user-select: none;
-  }
-
-  /* 메뉴 버튼 터치 최적화 */
-  #menuBtn {
-    -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;
-    cursor: pointer;
-    z-index: 10001;
-    position: relative;
   }
 
   /* 반응형 네비게이션 - 모바일에서 최적화 */
