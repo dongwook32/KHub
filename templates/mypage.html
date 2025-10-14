@@ -458,16 +458,15 @@
           <input id="editAnonNickname" type="text" placeholder="닉네임을 입력하세요" maxlength="10">
         </div>
         <div class="form-group">
-          <label>학번</label>
-          <select id="editAnonYear">
-            <option value="">선택해주세요</option>
-            <option value="25학번">25학번</option>
-            <option value="24학번">24학번</option>
-            <option value="23학번">23학번</option>
-            <option value="22학번">22학번</option>
-            <option value="21학번">21학번</option>
-            <option value="20학번">20학번</option>
-          </select>
+          <label>학번 (회원가입 정보 연동)</label>
+          <div id="editAnonYear" class="flex gap-2">
+            <div class="flex-1 py-2 px-4 border rounded bg-gray-100 text-gray-600 text-center cursor-not-allowed">
+              <span id="editYearEmoji">🎓</span> <span id="editYearText">로딩중...</span>
+            </div>
+          </div>
+          <div class="text-xs text-gray-500 mt-1">
+            회원가입 시 입력한 학번이 자동으로 적용됩니다.
+          </div>
         </div>
         <div class="form-group">
           <label>성별 (회원가입 정보 연동)</label>
@@ -793,13 +792,33 @@
     // 익명카드 저장
     async function saveAnonProfile() {
       const nickname = document.getElementById('editAnonNickname').value.trim() || '익명의친구';
-      const year = document.getElementById('editAnonYear').value;
+      
+      // 회원가입 정보에서 학번 자동 추출 (서버에서 가져오기)
+      let year = null;
+      
+      try {
+        const response = await fetch('/api/user-info');
+        const data = await response.json();
+        
+        if (data.success && data.user && data.user.student_id) {
+          const studentId = data.user.student_id;
+          if (studentId.length >= 4) {
+            const admissionYear = studentId.substring(0, 4); // 예: "2022"
+            const yearDisplay = admissionYear.substring(2); // 마지막 2자리: "22"
+            year = `${yearDisplay}학번`;
+            console.log('[익명프로필 저장] 서버에서 학번 추출:', year);
+          }
+        }
+      } catch (error) {
+        console.error('[익명프로필 저장] 학번 추출 실패:', error);
+      }
+      
       const gender = userGender; // 회원가입 정보에서 가져온 성별 사용
       const bio = document.getElementById('editAnonBio').value.trim();
       const interests = Array.from(document.querySelectorAll('.interest-chip.selected')).map(chip => chip.dataset.value);
       
       if (!year) {
-        alert('학번을 선택해주세요.');
+        alert('학번 정보를 불러올 수 없습니다. 다시 로그인해주세요.');
         return;
       }
       
@@ -884,13 +903,62 @@
       }
     }
 
+    // 회원가입 정보에서 학번 로드
+    async function loadUserYearForMypage() {
+      try {
+        console.log('[학번 로드] 서버에서 사용자 정보 가져오기 시작');
+        const response = await fetch('/api/user-info');
+        const data = await response.json();
+        
+        console.log('[학번 로드] 서버 응답:', data);
+        
+        if (data.success && data.user) {
+          const studentId = data.user.student_id; // studentId가 아니라 student_id
+          console.log('[학번 로드] 사용자 학번:', studentId);
+          
+          if (studentId && studentId.length >= 4) {
+            const admissionYear = studentId.substring(0, 4); // 예: "2022"
+            const yearDisplay = admissionYear.substring(2); // 마지막 2자리: "22"
+            const yearText = `${yearDisplay}학번`;
+            
+            console.log('[학번 로드] 추출된 학번:', yearText);
+            
+            // UI 업데이트
+            const yearTextElement = document.getElementById('editYearText');
+            if (yearTextElement) {
+              yearTextElement.textContent = yearText;
+            }
+          } else {
+            console.log('[학번 로드] 학번 형식이 올바르지 않음:', studentId);
+            const yearTextElement = document.getElementById('editYearText');
+            if (yearTextElement) {
+              yearTextElement.textContent = '학번 정보 없음';
+            }
+          }
+        } else {
+          console.error('[학번 로드] 사용자 정보를 가져올 수 없습니다:', data.message);
+          const yearTextElement = document.getElementById('editYearText');
+          if (yearTextElement) {
+            yearTextElement.textContent = '학번 정보 없음';
+          }
+        }
+      } catch (error) {
+        console.error('[학번 로드] 사용자 정보 로드 실패:', error);
+        const yearTextElement = document.getElementById('editYearText');
+        if (yearTextElement) {
+          yearTextElement.textContent = '학번 정보 없음';
+        }
+      }
+    }
+
     // 모달 열 때 기존 데이터 로드
     async function openModal(modalId) {
       document.getElementById(modalId).style.display = 'flex';
       
       if (modalId === 'profileModal') {
-        // 회원가입 정보에서 성별 로드
+        // 회원가입 정보에서 성별과 학번 로드
         loadUserGenderForMypage();
+        loadUserYearForMypage();
         
         // 서버에서 최신 익명 프로필 가져오기
         try {
@@ -1470,11 +1538,16 @@
     // 회원 탈퇴
     async function handleDeleteAccount() {
       try {
+        console.log('[회원 탈퇴] 탈퇴 요청 시작');
+        
         // 최종 확인
         const confirmed = confirm('정말로 회원 탈퇴하시겠습니까? 모든 데이터가 영구적으로 삭제됩니다.');
         if (!confirmed) {
+          console.log('[회원 탈퇴] 사용자가 취소함');
           return;
         }
+        
+        console.log('[회원 탈퇴] 서버에 탈퇴 요청 전송');
         
         // 서버에 탈퇴 요청
         const response = await fetch("{{ url_for('delete_account') }}", {
@@ -1484,9 +1557,18 @@
           }
         });
         
+        console.log('[회원 탈퇴] 서버 응답 상태:', response.status);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP 오류: ${response.status}`);
+        }
+        
         const result = await response.json();
+        console.log('[회원 탈퇴] 서버 응답:', result);
         
         if (result.success) {
+          console.log('[회원 탈퇴] 서버에서 성공 응답 받음 - 로컬 데이터 삭제 시작');
+          
           // localStorage의 모든 데이터 삭제
           const currentUser = localStorage.getItem('currentUser');
           if (currentUser) {
@@ -1527,13 +1609,15 @@
           alert(result.message);
           
           // 홈페이지로 리디렉트
+          console.log('[회원 탈퇴] 홈페이지로 리디렉트');
           window.location.href = result.redirect || "{{ url_for('index') }}";
         } else {
+          console.error('[회원 탈퇴 실패] 서버 오류:', result.message);
           alert(result.message || '회원 탈퇴 중 오류가 발생했습니다.');
         }
       } catch (error) {
-        console.error('회원 탈퇴 오류:', error);
-        alert('회원 탈퇴 처리 중 오류가 발생했습니다. 다시 시도해주세요.');
+        console.error('[회원 탈퇴 오류] 상세 오류:', error);
+        alert(`회원 탈퇴 처리 중 오류가 발생했습니다: ${error.message}\n다시 시도해주세요.`);
       }
     }
 

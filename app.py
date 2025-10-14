@@ -25,7 +25,8 @@ def load_users():
         try:
             with open(DATA_FILE, 'r', encoding='utf-8') as f:
                 return json.load(f)
-        except:
+        except Exception as e:
+            print(f"[사용자 데이터 로드 실패] 오류: {e}")
             return []
     return []
 
@@ -496,25 +497,36 @@ def change_password():
 @app.route('/delete-account', methods=['POST'])
 def delete_account():
     """회원 탈퇴"""
+    print(f"[회원 탈퇴 요청] 세션 정보: {session}")
+    
     # 로그인 체크
     if 'user' not in session or not session.get('user'):
+        print("[회원 탈퇴 실패] 로그인되지 않은 사용자")
         return jsonify({'success': False, 'message': '로그인이 필요합니다.'}), 401
     
     current_user = session.get('user', {})
     student_id = current_user.get('student_id')
     
+    print(f"[회원 탈퇴] 요청한 사용자 학번: {student_id}")
+    
     if not student_id:
+        print("[회원 탈퇴 실패] 학번 정보 없음")
         return jsonify({'success': False, 'message': '사용자 정보를 찾을 수 없습니다.'}), 400
     
     # 사용자 데이터 로드
     users = load_users()
+    print(f"[회원 탈퇴] 현재 등록된 사용자 수: {len(users)}")
     
     # 해당 사용자 찾아서 삭제
     original_count = len(users)
     users = [user for user in users if user.get('student_id') != student_id]
+    deleted_count = original_count - len(users)
+    
+    print(f"[회원 탈퇴] 삭제된 사용자 수: {deleted_count}")
     
     if len(users) == original_count:
         # 사용자를 찾지 못한 경우 (등록되지 않은 사용자일 수 있음)
+        print("[회원 탈퇴] 사용자를 찾지 못함 - 세션만 삭제")
         session.clear()
         return jsonify({
             'success': True, 
@@ -523,16 +535,25 @@ def delete_account():
         })
     
     # 변경된 사용자 목록 저장
+    print(f"[회원 탈퇴] 사용자 목록 저장 시도 - {len(users)}명")
     if not save_users(users):
+        print("[회원 탈퇴 실패] 사용자 데이터 저장 실패")
         return jsonify({'success': False, 'message': '회원 탈퇴 중 오류가 발생했습니다.'}), 500
     
     # 익명 프로필도 삭제
-    anon_profiles = load_anon_profiles()
-    anon_profiles = [p for p in anon_profiles if p.get('student_id') != student_id]
-    save_anon_profiles(anon_profiles)
+    try:
+        anon_profiles = load_anon_profiles()
+        original_anon_count = len(anon_profiles)
+        anon_profiles = [p for p in anon_profiles if p.get('student_id') != student_id]
+        deleted_anon_count = original_anon_count - len(anon_profiles)
+        save_anon_profiles(anon_profiles)
+        print(f"[회원 탈퇴] 익명 프로필 삭제: {deleted_anon_count}개")
+    except Exception as e:
+        print(f"[회원 탈퇴] 익명 프로필 삭제 중 오류: {e}")
     
     # 세션 삭제
     session.clear()
+    print(f"[회원 탈퇴 성공] 학번 {student_id} 탈퇴 완료")
     
     return jsonify({
         'success': True, 
