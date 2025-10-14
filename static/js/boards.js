@@ -620,6 +620,142 @@ function viewPost(postId) {
   renderPostDetail(post, postComments);
 }
 
+// ===== 게시글 수정 모달 열기 =====
+function openEditModal(postId) {
+  const post = posts.find(p => p.id === postId);
+  if (!post) {
+    alert('게시글을 찾을 수 없습니다.');
+    return;
+  }
+  
+  // 수정 폼에 기존 데이터 채우기
+  document.getElementById('editPostId').value = post.id;
+  document.getElementById('editPostTitle').value = post.title;
+  document.getElementById('editPostContent').value = post.content;
+  
+  // 기존 태그 표시
+  const editTagsContainer = document.getElementById('editTagsContainer');
+  editTagsContainer.innerHTML = '';
+  if (post.tags && post.tags.length > 0) {
+    post.tags.forEach(tag => {
+      const tagSpan = document.createElement('span');
+      tagSpan.className = 'tag';
+      tagSpan.innerHTML = `
+        #${tag}
+        <button type="button" onclick="removeEditTag('${tag}')">&times;</button>
+      `;
+      editTagsContainer.appendChild(tagSpan);
+    });
+  }
+  
+  // 수정 태그 입력 이벤트 추가
+  addTag('editTagInput');
+  
+  // 모달 표시
+  document.getElementById('editModal').style.display = 'flex';
+}
+
+// ===== 수정 모달 닫기 =====
+function hideEditModal() {
+  document.getElementById('editModal').style.display = 'none';
+  document.getElementById('editForm').reset();
+  document.getElementById('editTagsContainer').innerHTML = '';
+}
+
+// ===== 수정 태그 제거 =====
+function removeEditTag(tagToRemove) {
+  const editTagsContainer = document.getElementById('editTagsContainer');
+  const tags = Array.from(editTagsContainer.querySelectorAll('.tag'));
+  tags.forEach(tag => {
+    if (tag.textContent.trim().replace('×', '').replace('#', '') === tagToRemove) {
+      tag.remove();
+    }
+  });
+}
+
+// ===== 게시글 수정 제출 =====
+async function submitEdit(event) {
+  event.preventDefault();
+  
+  const postId = document.getElementById('editPostId').value;
+  const title = document.getElementById('editPostTitle').value.trim();
+  const content = document.getElementById('editPostContent').value.trim();
+  
+  // 태그 수집
+  const editTagsContainer = document.getElementById('editTagsContainer');
+  const tags = Array.from(editTagsContainer.querySelectorAll('.tag')).map(tag => {
+    return tag.textContent.trim().replace('×', '').replace('#', '');
+  });
+  
+  if (!title || !content) {
+    alert('제목과 내용을 입력해주세요.');
+    return;
+  }
+  
+  try {
+    // 서버에 수정 요청
+    const response = await fetch(`/api/board-posts/${postId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        title: title,
+        content: content,
+        tags: tags
+      })
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      // 서버에서 게시글 다시 로드
+      posts = await loadPostsFromServer();
+      comments = await loadCommentsFromServer();
+      
+      // 익명 번호 매핑 재구성
+      rebuildAnonymousMap(posts, comments);
+      
+      // localStorage 활동 기록 업데이트
+      const currentUser = localStorage.getItem('currentUser');
+      if (currentUser) {
+        try {
+          const activity = JSON.parse(localStorage.getItem(`activity_${currentUser}`) || '{"posts":[],"comments":[],"likes":[],"commentLikes":[]}');
+          
+          // 내가 작성한 글 목록에서 업데이트
+          const postIndex = activity.posts.findIndex(p => p.id === postId);
+          if (postIndex !== -1) {
+            activity.posts[postIndex].title = title;
+            activity.posts[postIndex].content = content;
+            activity.posts[postIndex].tags = tags;
+          }
+          
+          localStorage.setItem(`activity_${currentUser}`, JSON.stringify(activity));
+        } catch (e) {
+          console.error('활동 기록 업데이트 실패:', e);
+        }
+      }
+      
+      // 모달 닫기
+      hideEditModal();
+      
+      // 수정된 게시글 다시 표시
+      const post = posts.find(p => p.id === postId);
+      if (post) {
+        const postComments = comments.filter(c => c.postId === postId);
+        renderPostDetail(post, postComments);
+      }
+      
+      alert('게시글이 수정되었습니다.');
+    } else {
+      alert(result.message || '게시글 수정 중 오류가 발생했습니다.');
+    }
+  } catch (error) {
+    console.error('게시글 수정 오류:', error);
+    alert('게시글 수정 중 오류가 발생했습니다.');
+  }
+}
+
 // ===== 게시글 삭제 =====
 async function deletePost(postId) {
   if (!confirm('정말 이 게시글을 삭제하시겠습니까?')) {
@@ -768,16 +904,27 @@ function renderPostDetail(post, postComments) {
       <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;">
         <h1 class="detail-title" style="flex: 1; margin: 0;">${post.title}</h1>
         ${isAuthor ? `
-        <button onclick="deletePost('${post.id}')" style="padding: 8px 16px; background: #ef4444; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; white-space: nowrap; transition: all 0.3s ease;" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">
-          <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display: inline-block; vertical-align: middle; margin-right: 4px;">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-          </svg>
-          삭제
-        </button>
+        <div style="display: flex; gap: 8px;">
+          <button onclick="openEditModal('${post.id}')" style="padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; white-space: nowrap; transition: all 0.3s ease;" onmouseover="this.style.background='#2563eb'" onmouseout="this.style.background='#3b82f6'">
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display: inline-block; vertical-align: middle; margin-right: 4px;">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+            </svg>
+            수정
+          </button>
+          <button onclick="deletePost('${post.id}')" style="padding: 8px 16px; background: #ef4444; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; white-space: nowrap; transition: all 0.3s ease;" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display: inline-block; vertical-align: middle; margin-right: 4px;">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+            </svg>
+            삭제
+          </button>
+        </div>
         ` : ''}
       </div>
       
-      <div class="detail-meta">${post.author} · ${getYearDisplay(post.year, post.status)} · ${formatTime(post.createdAt)}</div>
+      <div class="detail-meta">
+        ${post.author} · ${getYearDisplay(post.year, post.status)} · ${formatTime(post.createdAt)}
+        ${post.updatedAt ? `<span style="color: #6B7280; font-size: 12px;"> (수정됨)</span>` : ''}
+      </div>
       
       <div class="detail-stats">
         <div class="stat-item like-btn ${isLiked(post.id) ? 'liked' : ''}" onclick="toggleLike('${post.id}')">

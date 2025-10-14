@@ -731,10 +731,13 @@ def delete_board_comment(comment_id):
 
 @app.route('/api/board-posts/<post_id>', methods=['PUT'])
 def update_board_post(post_id):
-    """게시글 정보 업데이트 (좋아요, 댓글 수 등)"""
+    """게시글 정보 업데이트 (좋아요, 댓글 수, 제목, 내용 등)"""
     # 로그인 체크
     if 'user' not in session or not session.get('user'):
         return jsonify({'success': False, 'message': '로그인이 필요합니다.'}), 401
+    
+    current_user = session.get('user', {})
+    current_student_id = current_user.get('student_id')
     
     posts = load_board_posts()
     
@@ -746,6 +749,24 @@ def update_board_post(post_id):
     
     # 업데이트할 데이터
     data = request.get_json()
+    
+    # 게시글 내용 수정인 경우 작성자 확인
+    if 'title' in data or 'content' in data:
+        if post.get('authorStudentId') != current_student_id:
+            return jsonify({'success': False, 'message': '게시글 작성자만 수정할 수 있습니다.'}), 403
+        
+        # 제목과 내용 업데이트
+        if 'title' in data:
+            post['title'] = data['title']
+        if 'content' in data:
+            post['content'] = data['content']
+        if 'tags' in data:
+            post['tags'] = data['tags']
+        
+        # 수정 시간 기록
+        post['updatedAt'] = datetime.now().isoformat()
+    
+    # 통계 정보 업데이트 (작성자 확인 불필요)
     if 'likes' in data:
         post['likes'] = data['likes']
     if 'comments' in data:
@@ -757,7 +778,7 @@ def update_board_post(post_id):
     if not save_board_posts(posts):
         return jsonify({'success': False, 'message': '게시글 업데이트 중 오류가 발생했습니다.'}), 500
     
-    return jsonify({'success': True, 'post': post})
+    return jsonify({'success': True, 'post': post, 'message': '게시글이 수정되었습니다.'})
 
 @app.route('/api/board-posts/<post_id>/like', methods=['POST'])
 def toggle_post_like(post_id):

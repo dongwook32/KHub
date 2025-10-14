@@ -536,6 +536,11 @@
 
 /* 반응형 디자인 */
 @media (max-width: 768px) {
+  /* 모바일에서 상단 메뉴와의 간격 확보 */
+  main {
+    margin-top: 100px !important;
+  }
+  
   .hero-content {
     flex-direction: column;
     align-items: flex-start;
@@ -601,6 +606,11 @@
 }
 
 @media (max-width: 480px) {
+  /* 작은 모바일에서 상단 메뉴와의 간격 확보 */
+  main {
+    margin-top: 95px !important;
+  }
+  
   .hero-content {
     padding: 16px;
   }

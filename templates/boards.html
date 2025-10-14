@@ -185,6 +185,38 @@
     </div>
   </div>
 
+  <!-- 수정 모달 -->
+  <div id="editModal" class="modal" style="display: none;">
+    <div class="modal-content write-modal">
+      <div class="modal-header">
+        <h2>글 수정</h2>
+        <button class="modal-close" onclick="hideEditModal()">&times;</button>
+      </div>
+      
+      <form id="editForm" onsubmit="submitEdit(event)">
+        <input type="hidden" id="editPostId" name="postId" />
+        
+        <div class="form-group">
+          <input type="text" id="editPostTitle" name="title" placeholder="제목" required />
+        </div>
+        
+        <div class="form-group">
+          <textarea id="editPostContent" name="content" placeholder="@선배A 처럼 멘션하고, #취업 처럼 태그를 남겨보세요." rows="12" required></textarea>
+        </div>
+        
+        <div class="form-group">
+          <input type="text" id="editTagInput" placeholder="#태그 입력 후 Enter" />
+          <div class="tags-container" id="editTagsContainer"></div>
+        </div>
+        
+        <div class="form-actions">
+          <button type="button" class="btn-secondary" onclick="hideEditModal()">취소</button>
+          <button type="submit" class="btn-primary">수정 완료</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- 댓글 모달 -->
   <div id="commentModal" class="modal" style="display: none;">
     <div class="modal-content">
