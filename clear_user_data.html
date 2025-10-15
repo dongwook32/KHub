@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>사용자 데이터 초기화</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        button {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #c82333;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            display: none;
+        }
+        .data-list {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .data-item {
+            margin: 5px 0;
+            font-family: monospace;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗑️ 사용자 데이터 초기화</h1>
+        
+        <div class="warning">
+            <strong>⚠️ 경고:</strong> 이 작업은 모든 로컬 사용자 데이터를 삭제합니다. 
+            회원가입부터 다시 시작해야 합니다.
+        </div>
+
+        <div class="data-list">
+            <h3>삭제될 데이터:</h3>
+            <div class="data-item">• 로그인 상태 (isLoggedIn)</div>
+            <div class="data-item">• 현재 사용자 정보 (currentUser)</div>
+            <div class="data-item">• 사용자 프로필 (userProfile)</div>
+            <div class="data-item">• 익명 프로필 (anonProfile)</div>
+            <div class="data-item">• 채팅 데이터 (chatData)</div>
+            <div class="data-item">• 나간 방 목록 (leftRooms)</div>
+            <div class="data-item">• 랜덤 프로필 (randomProfiles)</div>
+            <div class="data-item">• 그룹 매칭 큐 (groupMatchingQueue)</div>
+            <div class="data-item">• 게시판 데이터 (boardPosts, boardComments)</div>
+            <div class="data-item">• 활동 데이터 (activity_*)</div>
+            <div class="data-item">• 기타 모든 사용자 관련 데이터</div>
+        </div>
+
+        <button onclick="clearAllData()">모든 데이터 삭제</button>
+        <button onclick="showCurrentData()">현재 데이터 확인</button>
+        <button onclick="goToRegister()">회원가입 페이지로 이동</button>
+
+        <div id="success" class="success">
+            ✅ 모든 사용자 데이터가 삭제되었습니다!<br>
+            회원가입 페이지로 이동하거나 페이지를 새로고침하세요.
+        </div>
+
+        <div id="currentData" class="data-list" style="display: none;">
+            <h3>현재 저장된 데이터:</h3>
+            <div id="dataList"></div>
+        </div>
+    </div>
+
+    <script>
+        function clearAllData() {
+            if (!confirm('정말로 모든 사용자 데이터를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) {
+                return;
+            }
+
+            try {
+                // 주요 사용자 데이터 삭제
+                const keysToRemove = [];
+                
+                // localStorage의 모든 키 확인
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && (
+                        key.includes('user') || 
+                        key.includes('profile') || 
+                        key.includes('chat') || 
+                        key.includes('room') || 
+                        key.includes('activity') ||
+                        key.includes('board') ||
+                        key.includes('anon') ||
+                        key.includes('random') ||
+                        key.includes('group') ||
+                        key.includes('left') ||
+                        key === 'isLoggedIn' ||
+                        key === 'currentUser' ||
+                        key === 'userProfile' ||
+                        key === 'anonProfile' ||
+                        key === 'chatData' ||
+                        key === 'leftRooms' ||
+                        key === 'randomProfiles' ||
+                        key === 'groupMatchingQueue' ||
+                        key === 'boardPosts' ||
+                        key === 'boardComments'
+                    )) {
+                        keysToRemove.push(key);
+                    }
+                }
+
+                // 키 삭제
+                keysToRemove.forEach(key => {
+                    localStorage.removeItem(key);
+                    console.log(`삭제됨: ${key}`);
+                });
+
+                // sessionStorage도 초기화
+                sessionStorage.clear();
+
+                // 성공 메시지 표시
+                document.getElementById('success').style.display = 'block';
+                document.getElementById('currentData').style.display = 'none';
+
+                console.log(`총 ${keysToRemove.length}개의 데이터 항목이 삭제되었습니다.`);
+                
+            } catch (error) {
+                console.error('데이터 삭제 중 오류:', error);
+                alert('데이터 삭제 중 오류가 발생했습니다: ' + error.message);
+            }
+        }
+
+        function showCurrentData() {
+            const dataDiv = document.getElementById('currentData');
+            const dataList = document.getElementById('dataList');
+            
+            dataDiv.style.display = 'block';
+            dataList.innerHTML = '';
+
+            // localStorage 데이터 표시
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && (
+                    key.includes('user') || 
+                    key.includes('profile') || 
+                    key.includes('chat') || 
+                    key.includes('room') || 
+                    key.includes('activity') ||
+                    key.includes('board') ||
+                    key.includes('anon') ||
+                    key.includes('random') ||
+                    key.includes('group') ||
+                    key.includes('left') ||
+                    key === 'isLoggedIn' ||
+                    key === 'currentUser' ||
+                    key === 'userProfile' ||
+                    key === 'anonProfile' ||
+                    key === 'chatData' ||
+                    key === 'leftRooms' ||
+                    key === 'randomProfiles' ||
+                    key === 'groupMatchingQueue' ||
+                    key === 'boardPosts' ||
+                    key === 'boardComments'
+                )) {
+                    const value = localStorage.getItem(key);
+                    const dataItem = document.createElement('div');
+                    dataItem.className = 'data-item';
+                    dataItem.innerHTML = `<strong>${key}:</strong> ${value.length > 100 ? value.substring(0, 100) + '...' : value}`;
+                    dataList.appendChild(dataItem);
+                }
+            }
+
+            if (dataList.children.length === 0) {
+                dataList.innerHTML = '<div class="data-item">저장된 사용자 데이터가 없습니다.</div>';
+            }
+        }
+
+        function goToRegister() {
+            window.location.href = '/register';
+        }
+
+        // 페이지 로드 시 현재 데이터 확인
+        window.onload = function() {
+            showCurrentData();
+        };
+    </script>
+</body>
+</html>
