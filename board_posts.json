@@ -1,1 +1,21 @@
-[]
+[
+  {
+    "id": "p1760490576356",
+    "title": "er",
+    "content": "wrwer",
+    "author": "익명1",
+    "authorStudentId": "202204031",
+    "year": 22,
+    "status": "재학생",
+    "createdAt": "2025-10-15T01:09:36.356Z",
+    "views": 0,
+    "likes": 0,
+    "comments": 0,
+    "tags": [],
+    "boardId": "free_board",
+    "departmentId": null,
+    "type": "question",
+    "category": "자유게시판",
+    "isAnonymous": true
+  }
+]
