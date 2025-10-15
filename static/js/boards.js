@@ -595,7 +595,7 @@ function displayPosts(postsToShow) {
 }
 
 // ===== 게시글 상세보기 =====
-function viewPost(postId) {
+async function viewPost(postId) {
   const post = posts.find(p => p.id === postId);
   if (!post) return;
   
@@ -604,6 +604,22 @@ function viewPost(postId) {
   
   // 조회수 증가
   post.views += 1;
+  
+  // 조회수를 서버에 저장
+  try {
+    await fetch(`/api/board-posts/${postId}/view`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ views: post.views })
+    });
+  } catch (error) {
+    console.error('조회수 서버 저장 오류:', error);
+  }
+  
+  // localStorage에도 저장
+  savePostsToLocalStorage();
   
   // 목록 화면 숨기기
   document.getElementById('postsList').style.display = 'none';
@@ -1494,8 +1510,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
   });
   
-  // 초기 게시글 표시 (모든 학과가 닫혀있으므로 게시글을 표시하지 않음)
-  // filterAndDisplayPosts();
+  // 초기 게시글 표시 (전체 자유게시판을 기본으로 표시)
+  filterAndDisplayPosts();
   
   // 모바일 메뉴 토글
   const menuBtn = document.getElementById('menuBtn');
